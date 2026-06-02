@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Foreland</title>
+<meta name="description" content="Forland – prosjekter, web-apper, CV og litt moro." />
+
+<!-- Fonts: bytt gjerne ut. Fraunces = overskrifter, Hanken Grotesk = brødtekst -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --paper:   #f3ede1;   /* bakgrunn (sand/papir) */
+    --ink:     #20302f;   /* hovedtekst (dyp sjøblå-grønn) */
+    --muted:   #6c726a;   /* dempet tekst */
+    --line:    #d7cdb9;   /* tynne streker */
+    --accent:  #2f7d72;   /* sjøglass-grønn */
+    --warm:    #c0762f;   /* varm aksent (moro) */
+    --card:    #faf6ee;   /* kortbakgrunn */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* Svake høydekoter i bakgrunnen – evoker et nes uten å bli for bokstavelig */
+  .contours {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: clamp(2.5rem, 8vw, 6rem) clamp(1.4rem, 6vw, 2.5rem) 4rem;
+  }
+
+  /* ---------- Topptekst / hero ---------- */
+  .kicker {
+    font-size: 0.78rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 1.4rem;
+    opacity: 0;
+    animation: rise 0.7s ease-out 0.05s forwards;
+  }
+
+  h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(3.6rem, 16vw, 6.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.2rem;
+    opacity: 0;
+    animation: rise 0.8s ease-out 0.15s forwards;
+  }
+  h1 .dot { color: var(--warm); }
+
+  .lede {
+    font-size: clamp(1.05rem, 2.6vw, 1.25rem);
+    color: var(--muted);
+    max-width: 34ch;
+    margin-bottom: 3.2rem;
+    opacity: 0;
+    animation: rise 0.8s ease-out 0.28s forwards;
+  }
+
+  /* ---------- Seksjonsetikett ---------- */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.74rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.6rem;
+    opacity: 0;
+    animation: rise 0.8s ease-out 0.4s forwards;
+  }
+  .section-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ---------- Kort-rutenett ---------- */
+  .grid { display: grid; gap: 0.9rem; }
+
+  .card {
+    display: flex;
+    align-items: baseline;
+    gap: 1.1rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.35rem 1.5rem;
+    text-decoration: none;
+    color: var(--ink);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    opacity: 0;
+    animation: rise 0.7s ease-out forwards;
+  }
+  /* Trappet innkomst */
+  .card:nth-child(1) { animation-delay: 0.48s; }
+  .card:nth-child(2) { animation-delay: 0.56s; }
+  .card:nth-child(3) { animation-delay: 0.64s; }
+  .card:nth-child(4) { animation-delay: 0.72s; }
+  .card:nth-child(5) { animation-delay: 0.80s; }
+  .card:nth-child(6) { animation-delay: 0.88s; }
+
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 28px -16px rgba(32,48,47,0.45);
+  }
+
+  .num {
+    font-family: "Fraunces", serif;
+    font-size: 0.95rem;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.15rem;
+  }
+
+  .card-body { flex: 1; }
+  .card-title {
+    font-family: "Fraunces", serif;
+    font-size: 1.3rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  .card-desc { font-size: 0.92rem; color: var(--muted); margin-top: 0.2rem; }
+
+  .arrow {
+    font-size: 1.1rem;
+    color: var(--muted);
+    transition: transform 0.25s ease, color 0.25s ease;
+    align-self: center;
+  }
+  .card:hover .arrow { transform: translateX(4px); color: var(--accent); }
+
+  /* ---------- Bunntekst ---------- */
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.8rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.4rem;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    opacity: 0;
+    animation: rise 0.8s ease-out 1s forwards;
+  }
+  footer a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); }
+  footer a:hover { color: var(--accent); }
+  .coords { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .kicker, h1, .lede, .section-label, .card, footer { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Dekorative høydekoter -->
+<svg class="contours" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <g fill="none" stroke="#c9bfa8" stroke-width="1.1">
+    <path d="M-50 620 C 180 540, 420 700, 880 560" />
+    <path d="M-50 670 C 180 600, 420 760, 880 620" />
+    <path d="M-50 720 C 180 660, 420 820, 880 680" />
+    <path d="M620 -40 C 700 160, 540 300, 760 460" />
+    <path d="M680 -40 C 760 160, 600 300, 820 460" />
+  </g>
+</svg>
+
+<div class="wrap">
+
+  <!-- ====== HERO – endre navn og tekst her ====== -->
+  <p class="kicker">foreland.me</p>
+  <h1>Foreland<span class="dot">.</span></h1>
+  <p class="lede">Et utsiktspunkt for prosjektene mine – ting jeg bygger, lærer og roter med.</p>
+
+  <!-- ====== SEKSJON ====== -->
+  <div class="section-label">Innhold</div>
+
+  <div class="grid">
+
+    <!-- ====== SLIK LEGGER DU TIL EN NY UNDERSIDE ======
+         Kopier én blokk under, endre href, tittel og beskrivelse.
+         href peker til en fil/mappe i samme repo, f.eks. "prosjekter/" eller "cv.html".
+    ============================================================ -->
+
+    <a class="card" href="prosjekter/">
+      <span class="num">01</span>
+      <span class="card-body">
+        <span class="card-title">Prosjekter</span>
+        <span class="card-desc">Ting jeg har bygget og holder på med.</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="card" href="apper/">
+      <span class="num">02</span>
+      <span class="card-body">
+        <span class="card-title">Web-apper</span>
+        <span class="card-desc">Små verktøy og eksperimenter du kan prøve.</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="card" href="cv.html">
+      <span class="num">03</span>
+      <span class="card-body">
+        <span class="card-title">CV</span>
+        <span class="card-desc">Bakgrunn, erfaring og hva jeg driver med.</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+    <a class="card" href="moro/">
+      <span class="num">04</span>
+      <span class="card-body">
+        <span class="card-title">Moro</span>
+        <span class="card-desc">Det som ikke trenger et formål.</span>
+      </span>
+      <span class="arrow">→</span>
+    </a>
+
+  </div>
+
+  <!-- ====== BUNNTEKST – endre e-post her ====== -->
+  <footer>
+    <span>Skriv gjerne: <a href="mailto:hei@foreland.me">hei@foreland.me</a></span>
+    <span class="coords">© <span id="year"></span> · Foreland</span>
+  </footer>
+
+</div>
+
+<script>
+  // Setter inn årstallet automatisk
+  document.getElementById("year").textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
