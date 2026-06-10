@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vestre Føreland — Gards- og slektshistorie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2EFE6;
+  --paper-deep:#E9E4D4;
+  --ink:#23201A;
+  --ink-soft:#4A453B;
+  --gran:#2E4A3C;
+  --gran-dark:#1B2C24;
+  --vann:#57707E;
+  --bronse:#8A6A45;
+  --line:#C9C2B0;
+  --maxw:880px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Crimson Pro',Georgia,serif;
+  font-size:1.12rem;
+  line-height:1.65;
+}
+a{color:var(--gran);text-decoration-color:var(--line);text-underline-offset:3px}
+a:hover{color:var(--bronse)}
+a:focus-visible{outline:2px solid var(--bronse);outline-offset:2px}
+
+/* ---------- HERO ---------- */
+.hero{
+  background:var(--gran-dark);
+  color:var(--paper);
+  padding:5.5rem 1.5rem 4.5rem;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero::after{
+  content:"";
+  position:absolute;left:0;right:0;bottom:0;height:90px;
+  background:
+    linear-gradient(to top, rgba(87,112,126,.28), transparent 70%);
+  pointer-events:none;
+}
+.hero .gnr{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.78rem;
+  letter-spacing:.28em;
+  text-transform:uppercase;
+  color:#A9BCB1;
+  margin-bottom:1.6rem;
+}
+.hero h1{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:clamp(2.4rem,7vw,4.6rem);
+  letter-spacing:.06em;
+  line-height:1.05;
+}
+.hero h1 .vestre{
+  display:block;
+  font-weight:300;
+  font-style:italic;
+  font-size:.42em;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  margin-top:.9rem;
+  color:#C8D2C9;
+}
+.hero .sub{
+  margin-top:2.2rem;
+  font-size:1.05rem;
+  color:#D8DDD2;
+  font-style:italic;
+}
+.hero .meta{
+  margin-top:2.6rem;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.74rem;
+  letter-spacing:.12em;
+  color:#8FA398;
+}
+.hero .meta span{white-space:nowrap}
+.hero .meta span+span::before{content:"·";margin:0 .8em;color:#5C7264}
+
+/* ---------- SHARED ---------- */
+main{max-width:var(--maxw);margin:0 auto;padding:0 1.4rem 6rem}
+section{margin-top:5rem}
+.kap{
+  text-align:center;
+  margin-bottom:2.6rem;
+}
+.kap .eyebrow{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.72rem;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:var(--vann);
+}
+.kap h2{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:clamp(1.7rem,4vw,2.4rem);
+  letter-spacing:.05em;
+  margin-top:.7rem;
+}
+.kap .rule{
+  width:64px;height:2px;background:var(--bronse);
+  margin:1.3rem auto 0;
+}
+p+p{margin-top:1rem}
+.lead{font-size:1.22rem}
+
+/* page-stamp chips — signatur-elementet */
+.stamp{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.68rem;
+  letter-spacing:.08em;
+  color:var(--bronse);
+  border:1px solid var(--bronse);
+  border-radius:2px;
+  padding:.1rem .5rem .12rem;
+  vertical-align:2px;
+  margin-left:.45rem;
+  white-space:nowrap;
+  text-decoration:none;
+  background:rgba(138,106,69,.06);
+}
+.stamp:hover{background:rgba(138,106,69,.14);color:var(--bronse)}
+
+/* info-grid for garden */
+.fakta{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+  margin:2.2rem 0;
+}
+.fakta div{
+  background:var(--paper);
+  padding:1.1rem 1.2rem;
+}
+.fakta .k{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.68rem;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--vann);
+  margin-bottom:.35rem;
+}
+.fakta .v{font-size:1.02rem;line-height:1.45}
+
+/* tables */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin:1.6rem 0;
+  font-size:1rem;
+}
+th{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:500;
+  font-size:.7rem;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  text-align:left;
+  color:var(--vann);
+  padding:.55rem .7rem;
+  border-bottom:2px solid var(--gran);
+}
+td{
+  padding:.6rem .7rem;
+  border-bottom:1px solid var(--line);
+  vertical-align:top;
+}
+td:first-child{font-weight:600}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:.85em}
+
+/* note blocks */
+.merk{
+  border-left:3px solid var(--vann);
+  background:var(--paper-deep);
+  padding:1rem 1.3rem;
+  margin:1.8rem 0;
+  font-size:1.02rem;
+}
+.merk strong{color:var(--gran)}
+
+/* ---------- EIERREKKE TIMELINE ---------- */
+.eier{
+  position:relative;
+  margin-top:2.5rem;
+  padding-left:2.1rem;
+}
+.eier::before{
+  content:"";
+  position:absolute;
+  left:7px;top:6px;bottom:6px;
+  width:2px;
+  background:var(--gran);
+}
+.eier .pkt{
+  position:relative;
+  padding:0 0 2rem 1.2rem;
+}
+.eier .pkt::before{
+  content:"";
+  position:absolute;
+  left:-2.05rem;top:.42rem;
+  width:12px;height:12px;
+  border-radius:50%;
+  background:var(--paper);
+  border:2.5px solid var(--gran);
+}
+.eier .pkt.din::before{background:var(--bronse);border-color:var(--bronse)}
+.eier .aar{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.78rem;
+  letter-spacing:.1em;
+  color:var(--vann);
+}
+.eier h3{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:1.18rem;
+  margin:.15rem 0 .3rem;
+}
+.eier .pkt.din h3{color:var(--gran)}
+.eier p{font-size:1rem;color:var(--ink-soft)}
+.eier .dinlinje{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.64rem;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--bronse);
+  margin-top:.3rem;
+}
+
+/* ---------- SLEKTSTRE ---------- */
+.grener{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1.4rem;
+  margin-bottom:0;
+}
+@media (max-width:640px){.grener{grid-template-columns:1fr}}
+.gren{
+  border:1px solid var(--line);
+  background:var(--paper-deep);
+  padding:1.4rem 1.4rem 1.2rem;
+}
+.gren h3{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:500;
+  font-size:.72rem;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:var(--vann);
+  margin-bottom:1.1rem;
+  text-align:center;
+}
+.person{
+  padding:.75rem 0;
+  border-top:1px solid var(--line);
+}
+.person:first-of-type{border-top:none}
+.person .navn{font-weight:600;font-size:1.04rem}
+.person .data{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.72rem;
+  color:var(--ink-soft);
+  margin-top:.15rem;
+  letter-spacing:.04em;
+}
+.person .rolle{font-size:.92rem;font-style:italic;color:var(--ink-soft);margin-top:.2rem}
+
+.samling{
+  text-align:center;
+  margin:0 auto;
+  position:relative;
+  padding-top:2.4rem;
+}
+.samling::before{
+  content:"";
+  position:absolute;
+  top:0;left:25%;right:25%;
+  height:1.2rem;
+  border-left:2px solid var(--gran);
+  border-right:2px solid var(--gran);
+  border-bottom:2px solid var(--gran);
+}
+.descent{
+  position:relative;
+  max-width:560px;
+  margin:0 auto;
+}
+.descent::before{
+  content:"";
+  position:absolute;
+  left:50%;top:-1.2rem;bottom:0;
+  width:2px;
+  margin-left:-1px;
+  background:var(--gran);
+}
+.gen{
+  position:relative;
+  background:var(--paper);
+  border:1.5px solid var(--gran);
+  margin:0 auto 2.4rem;
+  padding:1.25rem 1.4rem 1.1rem;
+  max-width:520px;
+  text-align:center;
+}
+.gen.hoved{border-color:var(--bronse);border-width:2px;background:#F6F1E6}
+.gen .glabel{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.62rem;
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  color:var(--vann);
+  margin-bottom:.45rem;
+}
+.gen .navn{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:1.22rem;
+  line-height:1.3;
+}
+.gen .partner{
+  font-size:1rem;
+  margin-top:.25rem;
+}
+.gen .partner::before{content:"⚭ ";color:var(--bronse)}
+.gen .data{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.72rem;
+  color:var(--ink-soft);
+  margin-top:.45rem;
+  letter-spacing:.04em;
+}
+.gen .note{
+  font-size:.95rem;
+  font-style:italic;
+  color:var(--ink-soft);
+  margin-top:.55rem;
+  line-height:1.5;
+}
+.gen .stamp{margin-left:0;margin-top:.6rem}
+
+/* ---------- HENDELSER ---------- */
+.hendelser{list-style:none;margin-top:2rem}
+.hendelser li{
+  display:grid;
+  grid-template-columns:86px 1fr;
+  gap:1.1rem;
+  padding:.85rem 0;
+  border-bottom:1px solid var(--line);
+}
+.hendelser .aar{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.85rem;
+  color:var(--gran);
+  font-weight:500;
+  padding-top:.15rem;
+}
+.hendelser p{font-size:1.02rem}
+
+/* ---------- KILDER ---------- */
+.kilde{
+  border:1px solid var(--line);
+  padding:1.5rem 1.6rem;
+  margin-top:1.4rem;
+  background:var(--paper-deep);
+}
+.kilde h3{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  font-size:1.15rem;
+  margin-bottom:.4rem;
+}
+.kilde p{font-size:1rem;color:var(--ink-soft)}
+.kilde .lenke{
+  display:inline-block;
+  margin-top:.7rem;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.78rem;
+  letter-spacing:.06em;
+}
+.sidetab td:first-child{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:500;
+  font-size:.82rem;
+  white-space:nowrap;
+}
+
+/* footer */
+footer{
+  background:var(--gran-dark);
+  color:#A9BCB1;
+  text-align:center;
+  padding:3rem 1.5rem;
+  font-size:.95rem;
+}
+footer .mono{font-size:.72rem;letter-spacing:.14em;margin-top:.8rem;color:#6E867A}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <p class="gnr">Hægeland sokn — Vennesla kommune — Agder</p>
+  <h1>FØRELAND<span class="vestre">Vestre · G.nr. 62</span></h1>
+  <p class="sub">Gards- og slektshistorie for ætta på «Der vest»</p>
+  <p class="meta">
+    <span>Br.nr. 1 «Der vest»</span><span>ved Sandlandsvannet</span><span>i slekta sidan 1843</span>
+  </p>
+</header>
+
+<main>
+
+<!-- ============ GARDEN ============ -->
+<section id="garden">
+  <div class="kap">
+    <p class="eyebrow">I</p>
+    <h2>Garden</h2>
+    <div class="rule"></div>
+  </div>
+
+  <p class="lead">Vestre Føreland ligg ved Sandlandsvannet i Vestbygda, vest for Hægelandskrossen i gamle Hægeland sokn. Garden er ein eigen matrikkelgard — gardsnummer 62 — og må ikkje forvekslast med Østre Føreland (g.nr. 80), som ligg fleire kilometer unna ved Langåna. Vassaga og kverna på Langåna høyrer til den austre garden; Vestre Føreland er ein heigard med eit anna vassdrag og ein annan profil.</p>
+
+  <div class="fakta">
+    <div><p class="k">Matrikkel</p><p class="v">G.nr. 62, Hægeland sokn. Hovudbruket er br.nr. 1 «Der vest».</p></div>
+    <div><p class="k">Beliggenhet</p><p class="v">Vestbygda, ved Sandlandsvannet. Dagens adresse for hovudbruket: Vestbygda, 4720 Hægeland.</p></div>
+    <div><p class="k">Namnet</p><p class="v">Eit <em>-land</em>-namn frå jarnalder/vikingtid. Rygh drøfter <em>fóra</em> («føre»), <em>fóðr</em> («fôr») eller mannsnamnet <em>Fóri</em> som førsteledd.</p></div>
+    <div><p class="k">Eldste nemning</p><p class="v">Samband med Udøy og Valand i Halse kring 1530. Laurids Føreland lagrettmann 1607.</p></div>
+    <div><p class="k">I slekta sidan</p><p class="v">1843, då deknen Jon Nilsson Haugland kjøpte garden for 550 spd. og follaug.</p></div>
+    <div><p class="k">I dag</p><p class="v">Knut Abusdal Føreland driv garden — same slekta, sjette generasjon etter Jon.</p></div>
+  </div>
+
+  <p>Bygdeboka opnar gardssoga med eit gamalt samband: «Det er frå gamalt samband mellom Føreland og Udøy og Valand i Halse og Harkmark. Ein Jon Åsmundson austre Valand var truleg far til Tore Jonson Udøy (kring 1530).» <a class="stamp" href="#kilder">Boka s. 248</a></p>
+
+  <p>På 1600-talet stig garden fram i skattelistene: <strong>Laurids Føreland</strong> var lagrettmann 1607 og er nemnd fram til 1617. <strong>Roffueld F.</strong> skattar av ei kvern 1621, <strong>Tosten F.</strong> er nemnd som «ødegaards- eller husmand» 1630, og <strong>Iffuer (Ivar) F.</strong> står som «krone- og leilendinge bonde» 1637. I koppskattmanntalet 1645 finn vi «Iver og hans kvinde», og i skattemanntalet 1647 eig Ivar 1½ hud i Føreland. Manntalet 1665 noterer at det er kvern på garden og små furebjelkar; matrikkelen 1668 sette skylda til 1¼ hud — garden kunne fø hest, 8 kyr og 10 smålog, og så 2½ tønne korn. <a class="stamp" href="#kilder">Boka s. 248–249</a></p>
+
+  <div class="merk"><strong>Om kverna:</strong> Skattelistene viser at Vestre Føreland hadde eiga kvern alt i 1621 og 1665 — truleg ei lita bekkekvern nær garden. Den større vassaga og kverna ved Langåna, som Vennesla historielag omtalar, høyrer derimot til Østre Føreland (g.nr. 80).</div>
+
+  <h3 style="font-family:'Fraunces',serif;font-size:1.3rem;margin-top:2.6rem;margin-bottom:.4rem">Bruk og plassar under garden</h3>
+  <table>
+    <thead><tr><th>Namn</th><th>Status</th><th>Historikk</th></tr></thead>
+    <tbody>
+      <tr><td>Der vest</td><td class="mono">br.nr. 1</td><td>Hovudbruket. Namnet kom då Anders Olson bygde nye hus vest for gamletunet på 1830-talet. <strong>Di slekts gard.</strong></td></tr>
+      <tr><td>Vollane</td><td class="mono">br.nr. 2</td><td>Skylddelt 1854 (17 skil.) til Anne Jonsdotter og Nils Gunnarson Uleberg. Nils «braut og bygde her» — han var òg murar.</td></tr>
+      <tr><td>Der inne</td><td class="mono">br.nr. 3</td><td>Skylddelt frå «Der vest» 1834; til Marte Olsdotter og Daniel Ånonson Steinsland (skjøte 1839).</td></tr>
+      <tr><td>Førelandsåsan</td><td class="mono">br.nr. 4</td><td>Skylddelt 1834 til Salve Andersson Steinsland. Seinare m.a. Olav Nilsson Haugland — bror til deknen Jon.</td></tr>
+      <tr><td>Heia</td><td class="mono">br.nr. 5/8</td><td>Heiastykke, kjøpt til Åsan 1878.</td></tr>
+      <tr><td>Topta</td><td>gamletun</td><td>Det opphavlege tunet. Stod ved lag til 1854 — då Vollane vart bygd, vart Topta lagd øyde.</td></tr>
+      <tr><td>Monen</td><td class="mono">br.nr. 10</td><td>«Kanskje det eldste av småbruka på Føreland.» Mari Jakobsdotter Urdal og Torje Jensson budde her 1849–51.</td></tr>
+      <tr><td>Løebakken</td><td>plass</td><td>Mari og Torje budde her frå ca. 1851 til ho døydde 1880.</td></tr>
+      <tr><td>Stien</td><td>plass</td><td>Bygsla under Vollane; bygd 1875 av Anders Jonson Føreland, g.m. Randi Ånonsdotter (Knud Aanensens syster).</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-family:'Fraunces',serif;font-size:1.3rem;margin-top:2.4rem;margin-bottom:.4rem">Husmannsplassar i Vestheia</h3>
+  <table>
+    <thead><tr><th>Plass</th><th>Fråflytta</th><th>I dag</th></tr></thead>
+    <tbody>
+      <tr><td>Dugan</td><td class="mono">1930</td><td>Tydelege spor etter hustufter</td></tr>
+      <tr><td>Graskleiv</td><td class="mono">ca. 1915</td><td>Restar etter hustufter</td></tr>
+      <tr><td>Røllend</td><td class="mono">ca. 1970</td><td>Husa står framleis</td></tr>
+      <tr><td>Våkkeland</td><td class="mono">ca. 1800</td><td>Utydelege restar</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ EIERREKKEN ============ -->
+<section id="eierrekke">
+  <div class="kap">
+    <p class="eyebrow">II</p>
+    <h2>Eigarrekkja på «Der vest»</h2>
+    <div class="rule"></div>
+  </div>
+
+  <p>Bygdeboka fører brukar- og eigarrekkja på hovudbruket attende til tidleg 1600-tal. Punkta merkte med bronse er di eiga slektslinje.</p>
+
+  <div class="eier">
+    <div class="pkt"><p class="aar">1607–1617</p><h3>Laurids Føreland</h3><p>Lagrettmann 1607. Kanskje far til Tollei Lauridsson Sandrib.</p></div>
+    <div class="pkt"><p class="aar">1621–1645</p><h3>Roffueld · Tosten · Iffuer</h3><p>Roffueld skattar av kvern 1621. Iffuer «krone- og leilendinge bonde» 1637; «Iver og hans kvinde» i koppskatten 1645.</p></div>
+    <div class="pkt"><p class="aar">ca. 1645–1675</p><h3>Ivar Olson Føreland (f. 1620) ⚭ Helje Svendsdotter</h3><p>Eig heile garden under Landkommisjonen 1661; brukar sjølv 13¾ eng. Skifte 1675 — odelsgods i Føreland og Tværsland.</p></div>
+    <div class="pkt"><p class="aar">1675–ca. 1680</p><h3>Olav Ivarson F. ⚭ Mari Mortensdotter</h3><p>Pantsette ½ hud til borgarmeisteren i Kristiansand. Døydde truleg før 1680; enka gifta seg att med Jon Ånonson Grindland. Odelssak på garden 1684 med brev attende til 1563.</p></div>
+    <div class="pkt"><p class="aar">–1692</p><h3>Kirsten Olsdotter F. ⚭ Billest Knutson</h3><p>Kirsten døydde 1692. Garden pantsett og «utluta på mange hender» — løyst inn att av verbror.</p></div>
+    <div class="pkt"><p class="aar">–1720</p><h3>Kristi Olsdotter F. ⚭ Eilev Ånonson Grindland</h3><p>Gav opp til skifte 1720. Fastegodset var 5 gsk. i Føreland.</p></div>
+    <div class="pkt"><p class="aar">1720–1758</p><h3>Ånon Eilevson F. ⚭ Gunhild Olsdotter</h3><p>Skifte etter Gunhild 1750. Ånon gifta seg att 1753 og døydde 1758, 71 år gamal.</p></div>
+    <div class="pkt"><p class="aar">1750–1784</p><h3>Olav Ånonson F. (1725–1808)</h3><p>Tre ekteskap: Guri Bårdsdotter Vikstøl (d. 1755), Randi Jonsdotter Gunstveit (d. på barnseng 1761) og Guri Andersdotter Eivindstad (1765). Frikjend i odelssak 1766. Blodsotta 1784 tok tre av borna same året.</p></div>
+    <div class="pkt"><p class="aar">1784–1832</p><h3>Ånon Olson F. (1767–1832) ⚭ Berte Kristensdotter Hægeland</h3><p>«Luta sund garden hardt» — selde teigar og skog 1806–1811, m.a. til Jon Olson Haugland for 650 rd.</p></div>
+    <div class="pkt"><p class="aar">ca. 1813–1818</p><h3>Olav Ånonson F. (f. 1789) ⚭ Ingeborg Larsdotter Buåsen</h3><p>Flytta til Spikkeland kring 1818 og makebytta 1 hud i Føreland mot 3 gsk. i Spikkeland.</p></div>
+    <div class="pkt"><p class="aar">1818–1843</p><h3>Olav Andersson Steinsland (1780–1850) → sonen Anders Olson</h3><p>Skylddeling 1834: «Der inne» og «Førelandsåsan» skilde ut. Anders bygde nye hus — bruket fekk namnet «Der vest». Gamletunet Topta stod til 1854.</p></div>
+    <div class="pkt din"><p class="aar">1843</p><h3>Jon Nilsson Haugland (1799–1886) ⚭ Ingeborg Andersdotter Vatneli</h3><p>Deknen i sokna kjøpte garden for 550 spd. og follaug. Skylddelte Vollane til dottera Anne 1854.</p><p class="dinlinje">Di slektslinje byrjar her</p></div>
+    <div class="pkt din"><p class="aar">før 1865</p><h3>Eli Jonsdotter F. (1831–1914) ⚭ 1860 Knud Aanensen («Knut Ånonson Skuggopsa, f. Åsan, Bj.»)</h3><p>Jon gav garden til dottera og versonen. Knud døydde alt i februar 1872, 36 år gamal — Eli dreiv garden som enke i tjue år, til 1892.</p><p class="dinlinje">Di slektslinje</p></div>
+    <div class="pkt din"><p class="aar">1892</p><h3>Aanon Knudsen Føreland (1861–1915) ⚭ 1888 Eli Sørensdotter Hodne</h3><p>Fyrste generasjonen fødd på garden. Matrikkel 1889: br.nr. 1, 2,37 skyldmark.</p><p class="dinlinje">Di slektslinje</p></div>
+    <div class="pkt din"><p class="aar">1915</p><h3>Knut Aanonsen Føreland (1888–1942) ⚭ Ingeborg Olsdotter Roland</h3><p>Kjøpte garden for 17 000 kroner etter farens død. «Knut d. 1942. Enka har garden nå» (1951).</p><p class="dinlinje">Di slektslinje — din oldefar</p></div>
+    <div class="pkt din"><p class="aar">i dag</p><h3>Knut Abusdal Føreland</h3><p>Driv hovudbruket — etterkomar av ein eldre bror av Alf Johnny. Same slekta i over 180 år.</p></div>
+  </div>
+</section>
+
+<!-- ============ SLEKTSTREET ============ -->
+<section id="slektstre">
+  <div class="kap">
+    <p class="eyebrow">III</p>
+    <h2>Slektslinja</h2>
+    <div class="rule"></div>
+  </div>
+
+  <p>To greiner møtest i ekteskapet i 1860: <strong>Haugland-greina</strong>, som åtte garden, og <strong>Aasan/Urdal-greina</strong>, som kom flyttande frå Bjelland. Det er gjennom Haugland-greina at garden kom inn i slekta.</p>
+
+  <div class="grener" style="margin-top:2.4rem">
+    <div class="gren">
+      <h3>Haugland-greina<br>(garden)</h3>
+      <div class="person">
+        <p class="navn">Niels Christensen Haugland</p>
+        <p class="data">1766–1850 · Haugland g.nr. 63</p>
+        <p class="rolle">⚭ Anne Olsdatter Haugland (1777–1835)</p>
+      </div>
+      <div class="person">
+        <p class="navn">Jon Nilsson Haugland</p>
+        <p class="data">1799–1886 · deknen</p>
+        <p class="rolle">⚭ 1823 Ingeborg Andersdotter Vatneli (1799–1890) — dotter av Anders Gundersen Vatneli (1771–1840) og Joran Sørensdatter Kleveland (1770–1837). Kjøpte Vestre Føreland 1843. Broren Olav Nilsson overtok Førelandsåsan.</p>
+      </div>
+      <div class="person">
+        <p class="navn">Eli (Ellen) Johnsdatter</p>
+        <p class="data">f. 8.9.1831 på Haugland · d. 1914</p>
+        <p class="rolle">Odelsjente etter at broren Nils (1835–1850) døydde ung. Enke 1872; dreiv garden til 1892.</p>
+      </div>
+    </div>
+
+    <div class="gren">
+      <h3>Aasan / Urdal-greina<br>(frå Bjelland)</h3>
+      <div class="person">
+        <p class="navn">Knud Omundsen Breilie</p>
+        <p class="data">f. 1750 · Breilid, Bjelland</p>
+        <p class="rolle">⚭ Guri Christensdatter Breilie (f. 1763)</p>
+      </div>
+      <div class="person">
+        <p class="navn">Jakob Nielsen Urdal</p>
+        <p class="data">1784–1861 · Urdal, Bjelland</p>
+        <p class="rolle">⚭ 28.10.1812 i Bjelland kyrkje: Ranni Johnsdatter <em>Bjørnaae</em> (1785–1864). Forlovarar: Søren Breilie og «Jens Roddaſ». Son av Niels Andersen Urdal (f. 1756) og Mari Olsdatter.</p>
+      </div>
+      <div class="person">
+        <p class="navn">Aanen Knudsen Aasan (Breilid)</p>
+        <p class="data">1789–1847 · d. Skugopsen, Hægeland</p>
+        <p class="rolle">⚭ Mari Jakobsdatter Urdal (1814–1880). Mari gifta seg att 1849 med Torje Jensson Skuggopsa og flytte til Monen og Løebakken på Føreland.</p>
+      </div>
+      <div class="person">
+        <p class="navn">Knud Aanensen</p>
+        <p class="data">f. 5.7.1835 på Aasan, Bjelland · d. feb. 1872</p>
+        <p class="rolle">Kom til Føreland-grenda 14 år gamal med mora. Døydde berre 36 år gamal.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="samling">
+    <div class="descent">
+      <div class="gen hoved">
+        <p class="glabel">Ekteskapet som samla greinene · 1860</p>
+        <p class="navn">Knud Aanensen Føreland (Aasan)</p>
+        <p class="partner">Eli (Ellen) Johnsdatter Haugland</p>
+        <p class="data">1835–1872 ⚭ 1831–1914 · overtok «Der vest» før 1865</p>
+        <p class="note">Born: Aanon (1861), Jon (1863, til Brokka), Jakob (1866–1894), Nils (1868–1874), Olav (1871 — drukna 16 månader gamal i august 1872, same året som faren døydde).</p>
+        <a class="stamp" href="#kilder">Boka s. 256–257</a>
+      </div>
+
+      <div class="gen">
+        <p class="glabel">Generasjon · tippoldefar</p>
+        <p class="navn">Aanon Knudsen Føreland</p>
+        <p class="partner">Eli Sørensdotter Hodne, Hornnes</p>
+        <p class="data">17.8.1861 – 23.9.1915 ⚭ 1888 · 1865–1938</p>
+        <p class="note">Fyrste i linja fødd på Vestre Føreland. Overtok formelt 1892. Eli kom frå Fjellestad/Hodne i Hornnes — dotter av Søren Thomassen Hodne og Birgit Gundersdatter Haugå.</p>
+        <a class="stamp" href="#kilder">Boka s. 257</a>
+      </div>
+
+      <div class="gen">
+        <p class="glabel">Generasjon · oldefar</p>
+        <p class="navn">Knut Aanonsen Føreland</p>
+        <p class="partner">Ingeborg Olsdotter Roland</p>
+        <p class="data">1888–1942 ⚭ · 1897–1962</p>
+        <p class="note">Kjøpte garden 1915 for 17 000 kroner, 27 år gamal. Ingeborg var dotter av Ole Johnsen Roland (f. 1860) og Anna Abrahamsdatter. Som enke sat ho med garden frå 1942.</p>
+        <a class="stamp" href="#kilder">Boka s. 257</a>
+      </div>
+
+      <div class="gen">
+        <p class="glabel">Generasjon · farfar</p>
+        <p class="navn">Alf Johnny Føreland</p>
+        <p class="data">yngst i syskenflokken · d. tidleg i 40-åra</p>
+        <p class="note">Fekk ikkje odelen — ein eldre bror tok over garden, og frå den greina kjem dagens eigar. Føreland-namnet følgde likevel linja vidare.</p>
+      </div>
+
+      <div class="gen">
+        <p class="glabel">Generasjon</p>
+        <p class="navn">Far</p>
+      </div>
+
+      <div class="gen" style="margin-bottom:0">
+        <p class="glabel">Generasjon · i dag</p>
+        <p class="navn">Morten Sebastian Føreland</p>
+        <p class="note">Sjuande generasjon etter Jon Nilsson Haugland — og slektning av Knut Abusdal Føreland som driv garden.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HENDELSER ============ -->
+<section id="hendelser">
+  <div class="kap">
+    <p class="eyebrow">IV</p>
+    <h2>Nøkkelhendingar</h2>
+    <div class="rule"></div>
+  </div>
+
+  <ul class="hendelser">
+    <li><span class="aar">1812</span><p>Jakob Nielsen Urdal og Ranni Johnsdatter Bjørnaae gifter seg 28. oktober i Bjelland kyrkje. Kvar «Bjørnaae» låg, er framleis uavklart.</p></li>
+    <li><span class="aar">1814</span><p>Mari Jakobsdatter fødd på Urdal — eldst av sju sysken.</p></li>
+    <li><span class="aar">1835</span><p>Knud Aanensen fødd på Aasan i Bjelland.</p></li>
+    <li><span class="aar">1843</span><p><strong>Jon Nilsson Haugland kjøper Vestre Føreland</strong> av Anders Olson for 550 spd. og follaug. Slekta kjem inn på garden.</p></li>
+    <li><span class="aar">1847</span><p>Aanen Knudsen døyr på Skugopsen. Mari blir enke med Knud (12) og Randi.</p></li>
+    <li><span class="aar">1849</span><p>Mari gifter seg att med Torje Jensson Skuggopsa — familien flytter til Føreland-grenda, fyrst på Monen, så Løebakken.</p></li>
+    <li><span class="aar">1850</span><p>Nils Jonsson (15) — odelsguten på Der vest — døyr. Eli blir odelsjente.</p></li>
+    <li><span class="aar">1854</span><p>Vollane skylddelt til Anne og Nils Uleberg. Gamletunet Topta blir lagt øyde.</p></li>
+    <li><span class="aar">1860</span><p>Eli Johnsdatter og Knud Aanensen gifter seg — dei to greinene blir éi.</p></li>
+    <li><span class="aar">1861</span><p>Aanon fødd på Vestre Føreland 17. august.</p></li>
+    <li><span class="aar">1872</span><p>Eit svart år: Knud døyr i februar, 36 år gamal. I august druknar vesleguten Olav (16 mnd.) i ein vassdam medan Eli er på slåtta. Eli driv garden vidare åleine i tjue år.</p></li>
+    <li><span class="aar">1892</span><p>Aanon overtek garden formelt.</p></li>
+    <li><span class="aar">1915</span><p>Aanon døyr 23. september. Sonen Knut kjøper garden for 17 000 kroner.</p></li>
+    <li><span class="aar">1942</span><p>Knut døyr, 54 år gamal — same alder som faren. Enka Ingeborg sit med garden.</p></li>
+    <li><span class="aar">1951</span><p><em>Hægelands-Boka</em> blir gjeven ut: «Enka har garden nå.»</p></li>
+    <li><span class="aar">i dag</span><p>Knut Abusdal Føreland driv hovudbruket — over 180 år i same slekta.</p></li>
+  </ul>
+</section>
+
+<!-- ============ KILDER ============ -->
+<section id="kilder">
+  <div class="kap">
+    <p class="eyebrow">V</p>
+    <h2>Kjelder og referansar</h2>
+    <div class="rule"></div>
+  </div>
+
+  <div class="kilde">
+    <h3>Jon Åsen: <em>Hægelands-Boka I — Gard og Ætt</em> (1951)</h3>
+    <p>Hægeland sogelag / Edgar Høgfeldt A/S, Kristiansand. Hovudkjelda for gards- og eigarsoga. Vestre Føreland (g.nr. 62) er handsama på <strong>sidene 248–264</strong>; Haugland (g.nr. 63) byrjar på side 265. Boka er fritt tilgjengeleg digitalt i Nasjonalbibliotekets nettbibliotek (i nb.no-visaren ligg boksida om lag 4 sider bak visartalet — boksida 253 er t.d. visarside 257 av 581).</p>
+    <a class="lenke" href="https://www.nb.no/search?q=H%C3%A6gelands-boka%20gard%20og%20%C3%A6tt" target="_blank" rel="noopener">→ Les boka på nb.no</a>
+  </div>
+
+  <table class="sidetab">
+    <thead><tr><th>Bokside</th><th>Innhald</th></tr></thead>
+    <tbody>
+      <tr><td>s. 248</td><td>«FØRELAND, VESTRE. G.nr. 62» — eldste samband (Valand/Udøy ca. 1530), Laurids 1607, kverna 1621</td></tr>
+      <tr><td>s. 249</td><td>Skattelister 1637–1668 · «DER VEST. Br.nr. 1» byrjar · Ivar Olson (f. 1620)</td></tr>
+      <tr><td>s. 250</td><td>Skifte 1705 · odelssaka 1684 med gamle brev frå 1563–1613</td></tr>
+      <tr><td>s. 251–252</td><td>Kirsten og Billest · Kristi og Eilev Grindland (skifte 1720) · Ånon Eilevson · Olav Ånonson</td></tr>
+      <tr><td>s. 253</td><td>Flyfoto «Føreland, vestre» · Olavs 2. ekteskap · odelssaka 1766</td></tr>
+      <tr><td>s. 254</td><td>Olavs 3. ekteskap · blodsotta 1784 · Ånon Olson «luta sund garden» 1806–11</td></tr>
+      <tr><td>s. 255</td><td>Olav Ånonson → Spikkeland 1818 · Olav Andersson Steinsland · skylddelinga 1834</td></tr>
+      <tr><td>s. 256</td><td><strong>Salet 1843 til Jon Nilsson Haugland</strong> · namnet «Der vest» · Topta · borna til Jon · Vollane 1854 · Eli ⚭ Knut 1860</td></tr>
+      <tr><td>s. 257</td><td><strong>Knuts død 1872 · Elis enketid · Aanon ⚭ Eli Hodne 1888 · Knut kjøper 1915 · «Enka har garden nå»</strong> · Vollane br.nr. 2 byrjar</td></tr>
+      <tr><td>s. 258–259</td><td>Vollane vidare · plassen Stien (Anders Jonson ⚭ Randi Ånonsdotter 1864)</td></tr>
+      <tr><td>s. 260–261</td><td>«Der inne» · <strong>Løebakken: Torje Jensson Skuggopsa ⚭ enka Mari Jakobsdotter Urdal 1849</strong> · Monen</td></tr>
+      <tr><td>s. 262–264</td><td>Førelandsåsan · flyfoto «Førelands-Åsan» · <strong>Olav Nilsson Haugland — «bror til deknen Jon Nilsson på Føreland»</strong></td></tr>
+      <tr><td>s. 265</td><td>«HAUGLAND. G.nr. 63» byrjar — krongods, 3 huder skyld, eldste former Hofflanndt 1601</td></tr>
+    </tbody>
+  </table>
+
+  <div class="kilde">
+    <h3>Bjelland kyrkjebok — vigde 1812</h3>
+    <p>Digitalarkivet, Bjelland sokneprestkontor. Vigselsinnførsla 28. oktober 1812: «Ungkarl Jacob Nielsſ. Urdal ægte viet med Pigen Ranni Johnsdr. Bjørnaae. Caut.: Jens Roddaſ og Søren Breilie.»</p>
+    <a class="lenke" href="https://www.digitalarkivet.no" target="_blank" rel="noopener">→ digitalarkivet.no</a>
+  </div>
+
+  <div class="kilde">
+    <h3>Geni.com — slektstre</h3>
+    <p>Brukargenererte profilar forvalta m.a. av Morten Sebastian Føreland, Svein-Tore Andersen og Siv-Camilla Mosfjeld. Kjelde for fødsels- og dødsdatoar utanfor bygdeboka (m.a. Aanon 17.8.1861–23.9.1915, Eli Sørensdotter Hodne f. 17.9.1866 på Fjellestad). Bør krysspeilast mot kyrkjebok og folketeljingar.</p>
+    <a class="lenke" href="https://www.geni.com" target="_blank" rel="noopener">→ geni.com</a>
+  </div>
+
+  <div class="kilde">
+    <h3>Andre kjelder</h3>
+    <p>Oluf Rygh: <em>Norske Gaardnavne</em> bd. IX, Lister og Mandals amt (1912) — matrikkelnamn og etymologi. Visit Vennesla / Vennesla historielag — husmannsplassane i Vestheia og Fjellmannsvegen. Magnus Breilid: <em>Bjelland — Gards- og ættesoge</em> (1965) for Urdal-, Aasan- og Breilid-greinene.</p>
+  </div>
+
+  <div class="merk" style="margin-top:2.4rem"><strong>Atterhald:</strong> Bygdeboka skriv at salet 1843 gjekk «truleg til foreldra åt Anders» — formuleringa gjeld follauget (forsørgjinga av Anders' foreldre), ikkje slektskap mellom seljar og kjøpar. Kvar garden «Bjørnaae» låg, og foreldra til Ranni Johnsdatter, er framleis uløyst. Geni-opplysningar er ikkje primærkjelder.</div>
+</section>
+
+</main>
+
+<footer>
+  <p>Vestre Føreland · G.nr. 62 · Hægeland sokn</p>
+  <p class="mono">UTARBEIDD MAI 2026 · BASERT PÅ ÅSEN (1951), DIGITALARKIVET OG GENI</p>
+</footer>
+
+</body>
+</html>
