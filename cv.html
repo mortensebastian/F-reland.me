@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CV – Morten Sebastian Føreland</title>
+<meta name="description" content="CV for Morten Sebastian Føreland – bakgrunn, erfaring og utdanning." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --paper:  #f3ede1;
+    --ink:    #20302f;
+    --muted:  #6c726a;
+    --line:   #d7cdb9;
+    --accent: #2f7d72;
+    --warm:   #c0762f;
+    --card:   #faf6ee;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  .contours {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: clamp(2.5rem, 8vw, 6rem) clamp(1.4rem, 6vw, 2.5rem) 4rem;
+  }
+
+  /* ---------- Tilbakelenke ---------- */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 2.4rem;
+    opacity: 0;
+    animation: rise 0.6s ease-out 0.05s forwards;
+    transition: color 0.2s;
+  }
+  .back:hover { color: var(--accent); }
+
+  /* ---------- Topptekst ---------- */
+  .kicker {
+    font-size: 0.78rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    opacity: 0;
+    animation: rise 0.7s ease-out 0.1s forwards;
+  }
+
+  h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(2.8rem, 10vw, 4.8rem);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.6rem;
+    opacity: 0;
+    animation: rise 0.8s ease-out 0.18s forwards;
+  }
+  h1 .dot { color: var(--warm); }
+
+  .subtitle {
+    font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+    color: var(--muted);
+    margin-bottom: 2rem;
+    opacity: 0;
+    animation: rise 0.8s ease-out 0.26s forwards;
+  }
+
+  /* ---------- Personalia ---------- */
+  .personalia {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 2rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin-bottom: 3.2rem;
+    padding: 1.2rem 1.5rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    opacity: 0;
+    animation: rise 0.8s ease-out 0.34s forwards;
+  }
+  .personalia a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); }
+  .personalia a:hover { color: var(--accent); }
+
+  /* ---------- Seksjonsetikett ---------- */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.74rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.4rem;
+    margin-top: 2.8rem;
+  }
+  .section-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ---------- Tidslinje ---------- */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 0 1.5rem;
+    padding: 1.35rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .entry:last-child { border-bottom: none; }
+
+  .entry-date {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.18rem;
+    line-height: 1.4;
+  }
+
+  .entry-body {}
+
+  .entry-org {
+    font-size: 0.84rem;
+    color: var(--muted);
+    margin-bottom: 0.15rem;
+  }
+
+  .entry-title {
+    font-family: "Fraunces", serif;
+    font-size: 1.15rem;
+    font-weight: 500;
+    line-height: 1.2;
+    margin-bottom: 0.55rem;
+    color: var(--ink);
+  }
+
+  .entry-desc {
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.65;
+  }
+
+  .entry-desc ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .entry-desc li::before {
+    content: "–";
+    color: var(--accent);
+    margin-right: 0.5rem;
+  }
+
+  /* ---------- Språk ---------- */
+  .lang-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.7rem;
+  }
+
+  .lang-item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .lang-name {
+    font-family: "Fraunces", serif;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .lang-level {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* ---------- Referanser ---------- */
+  .ref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.8rem;
+  }
+
+  .ref-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+  }
+
+  .ref-role {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+    line-height: 1.4;
+  }
+
+  .ref-name {
+    font-family: "Fraunces", serif;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.35rem;
+  }
+
+  .ref-contact {
+    font-size: 0.82rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .ref-contact a { color: var(--muted); text-decoration: none; }
+  .ref-contact a:hover { color: var(--accent); }
+
+  /* ---------- HPR ---------- */
+  .hpr-box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1rem 1.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 2.5rem;
+    font-size: 0.88rem;
+  }
+  .hpr-item { display: flex; flex-direction: column; gap: 0.1rem; }
+  .hpr-label { font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .hpr-value { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Bunntekst ---------- */
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.8rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.4rem;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); }
+  footer a:hover { color: var(--accent); }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 520px) {
+    .entry {
+      grid-template-columns: 1fr;
+      gap: 0.2rem;
+    }
+    .entry-date { color: var(--accent); font-size: 0.78rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+    .back, .kicker, h1, .subtitle, .personalia { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="contours" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <g fill="none" stroke="#c9bfa8" stroke-width="1.1">
+    <path d="M-50 620 C 180 540, 420 700, 880 560" />
+    <path d="M-50 670 C 180 600, 420 760, 880 620" />
+    <path d="M-50 720 C 180 660, 420 820, 880 680" />
+    <path d="M620 -40 C 700 160, 540 300, 760 460" />
+    <path d="M680 -40 C 760 160, 600 300, 820 460" />
+  </g>
+</svg>
+
+<div class="wrap">
+
+  <a class="back" href="/">← foreland.me</a>
+
+  <p class="kicker">Curriculum Vitae</p>
+  <h1>Morten<br>Føreland<span class="dot">.</span></h1>
+  <p class="subtitle">Vernepleier · Sosialkonsulent · Miljøterapeut</p>
+
+  <div class="personalia">
+    <span>Asbjørnsensveien 40, 1461 Lørenskog</span>
+    <span><a href="mailto:mortensf@pm.me">mortensf@pm.me</a></span>
+    <span><a href="tel:+4790127705">+47 901 27 705</a></span>
+    <span>Født 07.03.1989 · Norsk statsborger</span>
+  </div>
+
+  <!-- ===== ARBEIDSERFARING ===== -->
+  <div class="section-label">Arbeidserfaring</div>
+  <div class="timeline">
+
+    <div class="entry">
+      <div class="entry-date">2023–06<br>i dag</div>
+      <div class="entry-body">
+        <div class="entry-org">Seksjon Psykisk Helse og Rus, Bydel Østensjø – Oslo kommune</div>
+        <div class="entry-title">Sosialkonsulent og miljøterapeut</div>
+        <div class="entry-desc">
+          Booppfølger for mennesker med psykiske lidelser og rusutfordringer. Siden januar 2025 på «Kroken», et aktivitetshus/kafé for personer med rusutfordringer – med fokus på aktiviteter, sosialisering og mestring.
+          <ul>
+            <li>Forebyggende arbeid og relasjonsarbeid</li>
+            <li>Tverrfaglig samarbeid og samarbeid med andre instanser</li>
+            <li>Individuell oppfølging</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2022–03<br>2023–08</div>
+      <div class="entry-body">
+        <div class="entry-org">MD Solutions AS</div>
+        <div class="entry-title">Konsulent</div>
+        <div class="entry-desc">
+          Bidro sentralt i utarbeiding og levering av anbud til UDI for akuttplassering av flyktninger fra Ukraina i 2022. Alle tre anbudene jeg bidro til ble vunnet. Deltok i oppstart av drift ved akuttmottaket på Tåsen i Oslo.
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2021–09<br>2023–08</div>
+      <div class="entry-body">
+        <div class="entry-org">Stiftelsen P22</div>
+        <div class="entry-title">Assisterende daglig leder</div>
+        <div class="entry-desc">
+          <ul>
+            <li>Fagansvar, inkludert utvikling av mestringsprogram (grupper, psykoedukasjon, individuelle samtaler og livsstilsveiledning)</li>
+            <li>Tett samarbeid med ansvarlig lege i daglig drift</li>
+            <li>Ansvar for inntak og koordinering av arbeidsoppgaver</li>
+            <li>Bidro i rekruttering, ansettelser og onboarding av nye medarbeidere</li>
+            <li>Ansvar for IT- og fagsystemer</li>
+            <li>Internkontroll, kvalitetsforbedring og avvikshåndtering</li>
+            <li>Utarbeidelse av søknader og årsrapporter til Helsedirektoratet</li>
+            <li>Budsjettarbeid og tett oppfølging av økonomistyringen</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2020–02<br>2021–09</div>
+      <div class="entry-body">
+        <div class="entry-org">Stiftelsen P22</div>
+        <div class="entry-title">Vernepleier og avdelingsleder</div>
+        <div class="entry-desc">
+          Startet som ekstravakt, deretter vernepleier i svangerskapsvikariat, assisterende avdelingsleder ved stabiliseringsavdelingen og avdelingsleder ved avrusningsavdelingen.
+          <ul>
+            <li>Motiverende intervju</li>
+            <li>Psykiatri og observasjoner av pre-psykotiske trekk</li>
+            <li>Avrusning og helse-/abstinensovervåkning</li>
+            <li>Kartlegging og medisinsk gjennomgang ved inntak</li>
+            <li>Administrering, istandgjøring og utdeling av legemidler</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2017–11<br>2020–01</div>
+      <div class="entry-body">
+        <div class="entry-org">Oslo Sanitetsforening Brusetkollen</div>
+        <div class="entry-title">Miljøarbeider</div>
+        <div class="entry-desc">
+          Tilkallingsvakt på barnevernsinstitusjon, medeleverturnus. Arbeid med barn fra 9–18 år.
+          <ul>
+            <li>Traumebevisst omsorg (TBO)</li>
+            <li>Tverrfaglig arbeid i team</li>
+            <li>Grensesetting og relasjonsarbeid</li>
+            <li>FOMA-kurs (forebygging og mestring av aggresjon)</li>
+            <li>Kurs i Motiverende Intervju</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2015–05<br>2017–08</div>
+      <div class="entry-body">
+        <div class="entry-org">Ungdomsenheten v/Bjørgvin fengsel</div>
+        <div class="entry-title">Ekstrabetjent</div>
+        <div class="entry-desc">
+          Miljøarbeid med barn med utfordrende atferd i en krevende situasjon. Enheten var organisert med likevekt av miljøterapeuter og fengselsbetjenter, og hadde egen psykolog.
+          <ul>
+            <li>Tverrfaglig arbeid</li>
+            <li>Grensesetting og oppfølging av rutiner</li>
+            <li>Faglig veiledning innen miljøterapi og psykologi</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2014–06<br>2016–12</div>
+      <div class="entry-body">
+        <div class="entry-org">Pinsekirken Tabernaklet</div>
+        <div class="entry-title">Ungdomsleder (50 %)</div>
+        <div class="entry-desc">
+          Leder for ungdomsarbeid med aldersgruppe 12–16 år.
+          <ul>
+            <li>Relasjonell ledelse og coaching av frivillige medarbeidere</li>
+            <li>Ledertrening og teambuilding</li>
+            <li>Organisering av leirer, sosiale aktiviteter og ukentlig fritidsklubb</li>
+            <li>Oppfølging av ungdommer i vanskelige situasjoner</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2011–10<br>2014–10</div>
+      <div class="entry-body">
+        <div class="entry-org">Barnevernstjenesten i Bergenhus</div>
+        <div class="entry-title">Støttekontakt</div>
+        <div class="entry-desc"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== UTDANNING ===== -->
+  <div class="section-label">Utdanning</div>
+  <div class="timeline">
+
+    <div class="entry">
+      <div class="entry-date">2017–08<br>2020–06</div>
+      <div class="entry-body">
+        <div class="entry-org">OsloMet</div>
+        <div class="entry-title">Vernepleie</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2011–08<br>2015–12</div>
+      <div class="entry-body">
+        <div class="entry-org">Universitetet i Bergen (UIB)</div>
+        <div class="entry-title">Bachelor i retorikk</div>
+        <div class="entry-desc">
+          Retorikk handler i kjernen om god kommunikasjon – forståelse av hvordan vi mennesker kommuniserer og forstår hverandre, noe som er særlig relevant i miljøterapi.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== KURS OG SERTIFISERING ===== -->
+  <div class="section-label">Kurs og sertifisering</div>
+  <div class="timeline">
+
+    <div class="entry">
+      <div class="entry-date">Feb 2018</div>
+      <div class="entry-body">
+        <div class="entry-org">RVTS Øst</div>
+        <div class="entry-title">Traumesensitiv omsorg</div>
+        <div class="entry-desc">2-dagerskurs med undervisning og workshops.</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">Jan 2018</div>
+      <div class="entry-body">
+        <div class="entry-org">Morten Ørbæk, enhetsleder ved Barneseksjonen – psykisk helse, OUS</div>
+        <div class="entry-title">FOMA – Forebygging og mestring av aggresjon</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">Nov 2009<br>Feb 2010</div>
+      <div class="entry-body">
+        <div class="entry-org">Sessvollmoen – Forsvaret</div>
+        <div class="entry-title">Medic-kurs (270 timer)</div>
+        <div class="entry-desc">Førstehjelp, transport av skadde og syke, medisinsk undersøkelse og pleie. Teoretiske og praktiske eksamener.</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2008–2030</div>
+      <div class="entry-body">
+        <div class="entry-org">Statens Vegvesen</div>
+        <div class="entry-title">Førerkort, klasse B</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== ANNEN ERFARING ===== -->
+  <div class="section-label">Annen erfaring</div>
+  <div class="timeline">
+
+    <div class="entry">
+      <div class="entry-date">2011–2012</div>
+      <div class="entry-body">
+        <div class="entry-title">Selvstendig næringsdrivende – Fix my iPhone</div>
+        <div class="entry-desc">Reparasjon av knuste telefoner, markedsføring, kundebehandling og logistikk.</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2011–2014</div>
+      <div class="entry-body">
+        <div class="entry-title">Forpleiningsassistent – Color Line M/S Superspeed (sommervikar)</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2009–2010</div>
+      <div class="entry-body">
+        <div class="entry-title">Førstegangstjenesten – Medic (sanitet) ved KV Senja, Kystvakt Nord</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2008–2009</div>
+      <div class="entry-body">
+        <div class="entry-title">Sagavoll folkehøyskole – friluftslinje</div>
+      </div>
+    </div>
+
+    <div class="entry">
+      <div class="entry-date">2006–2007</div>
+      <div class="entry-body">
+        <div class="entry-title">Utvekslingselev i USA</div>
+        <div class="entry-desc">Lake City High School, Coeur d'Alene, Idaho.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== SPRÅK ===== -->
+  <div class="section-label">Språkkunnskaper</div>
+  <div class="lang-grid">
+    <div class="lang-item">
+      <span class="lang-name">Norsk</span>
+      <span class="lang-level">Muntlig: Meget godt<br>Skriftlig: Meget godt</span>
+    </div>
+    <div class="lang-item">
+      <span class="lang-name">Engelsk</span>
+      <span class="lang-level">Muntlig: Meget godt<br>Skriftlig: Meget godt</span>
+    </div>
+    <div class="lang-item">
+      <span class="lang-name">Tysk</span>
+      <span class="lang-level">Muntlig: Noe<br>Skriftlig: Noe</span>
+    </div>
+    <div class="lang-item">
+      <span class="lang-name">Spansk</span>
+      <span class="lang-level">Muntlig: Noe<br>Skriftlig: Noe</span>
+    </div>
+    <div class="lang-item">
+      <span class="lang-name">Russisk</span>
+      <span class="lang-level">Muntlig: Noe<br>Skriftlig: Ingen</span>
+    </div>
+  </div>
+
+  <!-- ===== HPR ===== -->
+  <div class="section-label">Helsepersonell (HPR)</div>
+  <div class="hpr-box">
+    <div class="hpr-item">
+      <span class="hpr-label">HPR-nummer</span>
+      <span class="hpr-value">10105956</span>
+    </div>
+    <div class="hpr-item">
+      <span class="hpr-label">Autorisasjon</span>
+      <span class="hpr-value">Vernepleier</span>
+    </div>
+  </div>
+
+  <!-- ===== REFERANSER ===== -->
+  <div class="section-label">Referanser</div>
+  <div class="ref-grid">
+
+    <div class="ref-card">
+      <div class="ref-role">Nåværende leder – Bydel Østensjø</div>
+      <div class="ref-name">Elin Olsson Ransau</div>
+      <div class="ref-contact">
+        <span><a href="tel:97168247">971 68 247</a></span>
+        <span><a href="mailto:elin.olsson.ransau@bos.oslo.kommune.no">elin.olsson.ransau@bos.oslo.kommune.no</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Avdelingsleder – Bydel Østensjø</div>
+      <div class="ref-name">Mari Rusten</div>
+      <div class="ref-contact">
+        <span><a href="tel:91341540">913 41 540</a></span>
+        <span><a href="mailto:mari.rusten@bos.oslo.kommune.no">mari.rusten@bos.oslo.kommune.no</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Koordinator – nåværende arbeidsplass</div>
+      <div class="ref-name">Katrine Fors Haugen</div>
+      <div class="ref-contact">
+        <span><a href="tel:99040602">990 40 602</a></span>
+        <span><a href="mailto:katrine.fors.haugen@bos.oslo.kommune.no">katrine.fors.haugen@bos.oslo.kommune.no</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Daglig leder – Stiftelsen P22</div>
+      <div class="ref-name">Jens Christian Petersen</div>
+      <div class="ref-contact">
+        <span><a href="tel:90401050">904 01 050</a></span>
+        <span><a href="mailto:jens@p22.no">jens@p22.no</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Ansvarlig lege – Stiftelsen P22</div>
+      <div class="ref-name">Daniel Asfaw</div>
+      <div class="ref-contact">
+        <span><a href="tel:90558353">905 58 353</a></span>
+        <span><a href="mailto:daniel@p22.no">daniel@p22.no</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Daglig leder – MD Solutions AS</div>
+      <div class="ref-name">Vojislav Bely Medic</div>
+      <div class="ref-contact">
+        <span><a href="tel:99443333">994 43 333</a></span>
+        <span><a href="mailto:bely.medic@mdsolutions.no">bely.medic@mdsolutions.no</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Leder – Brusetkollen barnevernsinstitusjon</div>
+      <div class="ref-name">Anette Olsen</div>
+      <div class="ref-contact">
+        <span><a href="tel:94811752">948 11 752</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Førstebetjent – Ungdomsenheten v/Bjørgvin fengsel</div>
+      <div class="ref-name">Åsmund Steine</div>
+      <div class="ref-contact">
+        <span><a href="tel:95807070">958 07 070</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Nærmeste leder – Pinsekirken Tabernaklet</div>
+      <div class="ref-name">Andre Birkeland</div>
+      <div class="ref-contact">
+        <span><a href="tel:48077993">480 77 993</a></span>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-role">Bror – Psykolog ved ARA Fact</div>
+      <div class="ref-name">Øyvind Buli Føreland</div>
+      <div class="ref-contact">
+        <span><a href="tel:48305452">483 05 452</a></span>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>Skriv gjerne: <a href="mailto:mortensf@pm.me">mortensf@pm.me</a></span>
+    <span>© <span id="year"></span> · Morten Sebastian Føreland</span>
+  </footer>
+
+</div>
+
+<script>
+  document.getElementById("year").textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
