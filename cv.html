@@ -193,6 +193,31 @@
     margin-right: 0.5rem;
   }
 
+  /* ---------- Ansiennitetslenke ---------- */
+  .calc-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1rem 1.3rem;
+    margin-top: 1.4rem;
+    text-decoration: none;
+    color: var(--ink);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .calc-link:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 28px -16px rgba(32,48,47,0.45);
+  }
+  .calc-link .cl-body { flex: 1; }
+  .calc-link .cl-title { font-family: "Fraunces", serif; font-size: 1.02rem; font-weight: 500; }
+  .calc-link .cl-desc { font-size: 0.84rem; color: var(--muted); margin-top: 0.15rem; }
+  .calc-link .cl-arrow { color: var(--muted); font-size: 1.1rem; transition: transform 0.25s ease, color 0.25s ease; }
+  .calc-link:hover .cl-arrow { transform: translateX(4px); color: var(--accent); }
+
   /* ---------- Språk ---------- */
   .lang-grid {
     display: grid;
@@ -430,6 +455,14 @@
     </div>
 
   </div>
+
+  <a class="calc-link" href="/ansiennitet.html">
+    <span class="cl-body">
+      <span class="cl-title">Ansiennitetsberegning</span>
+      <span class="cl-desc">Samlet lønnsansiennitet (≈ 11,9 år) med åpen omregning av turnustimer, ringevikartimer og medleverdøgn.</span>
+    </span>
+    <span class="cl-arrow">→</span>
+  </a>
 
   <!-- ===== UTDANNING ===== -->
   <div class="section-label">Utdanning</div>
