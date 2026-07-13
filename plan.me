@@ -1,0 +1,74 @@
+# Plan – Ekspedisjon-fane
+
+> **Om siden:** foreland.me er Mortens personlige nettsted som samler og publiserer
+> ting han jobber med (prosjekter, web-apper, CV, m.m.). Dette dokumentet er planen
+> for **én av undersidene** – ekspedisjonsfanen – ikke en plan for hele nettstedet.
+> Overordnet veiledning for repoet ligger i `CLAUDE.md`.
+
+## Mål
+Lage en ny underside «Ekspedisjon» på foreland.me hvor man kan:
+1. Se **fullførte ekspedisjoner** (med kart)
+2. Bruke en **ekspedisjonsplanlegger**
+3. Legge inn en **GPX-fil** som vises i et gratis kartsystem
+4. Alternativt legge inn **koordinater/rute manuelt** i planleggeren
+
+## Rammer (viktig)
+- Nettstedet er statisk (GitHub Pages, ingen backend/server).
+- All GPX-lesing og karttegning må derfor skje i nettleseren (klient-side).
+- Designspråket gjenbrukes fra de andre sidene: fargevariabler, Fraunces + Hanken Grotesk,
+  «papir/sand»-bakgrunn, høydekoter, `.card`, `.back`, `footer` osv.
+
+## Kartsystem (gratis)
+- **Leaflet** (åpen kildekode, MIT) fra unpkg-CDN – samme mønster som Google Fonts-CDN
+  som allerede brukes.
+- Kartlag (velgbare):
+  - **Kartverket topo** (offisielt norsk topografisk kart, gratis) – standard, best for norsk terreng
+  - **OpenTopoMap** (topografisk, gratis)
+  - **OpenStreetMap** (standard, gratis)
+- Ingen API-nøkkel kreves for noen av lagene.
+
+## GPX-håndtering
+- Egen liten GPX-parser i nettleseren med `DOMParser` (ingen ekstra avhengighet):
+  leser `<trkpt>` / `<rtept>` (lat/lon + `<ele>`).
+- Beregner distanse (haversine) og høydemeter opp.
+- Fil lastes lokalt via `<input type="file">` – ingenting sendes til en server.
+
+## Sidestruktur (`ekspedisjon.html`)
+- Tilbake-lenke, kicker, `h1` «Ekspedisjon», ingress.
+- To fane-knapper som veksler visning:
+  1. **Fullførte ekspedisjoner**
+  2. **Ekspedisjonsplanlegger**
+
+### Fane 1 – Fullførte
+Tre kort (forhåndsutfylt):
+1. Pilgrimstur Hovden–Røldal
+2. Løpetur til Sandnos med overnatting
+3. Gjøvik – Oslo på ski
+
+Hvert kort kan felles ut → viser et kart + «Last opp GPX-fil» + statistikk
+(distanse / høydemeter). Kartet initialiseres først når kortet åpnes (ytelse).
+
+### Fane 2 – Planlegger
+- Ett kart med lagvelger.
+- Verktøylinje:
+  - «Last opp GPX» (fil → tegner rute)
+  - «Legg til punkt ved klikk» (av/på – klikk i kartet legger til veipunkt)
+  - Manuell input: breddegrad + lengdegrad + «Legg til»
+  - «Angre siste», «Tøm rute»
+  - «Last ned som GPX» (eksport av planlagt rute)
+- Punkter vises som markører (kan dras), forbundet med en linje.
+- Statistikk: antall punkter + total distanse. Koordinatliste vises under.
+
+## Navigasjon
+- Nytt kort «Ekspedisjon» på forsiden (`index.html`).
+
+## Leveranser
+- `plan.me` (denne fila)
+- `CLAUDE.md` (repo-veiledning)
+- `ekspedisjon.html` (ny side)
+- Oppdatert `index.html` (ny fane/kort)
+
+## Teststeg
+- Åpne siden lokalt, veksle mellom fanene.
+- Last opp en GPX-fil og se at ruten tegnes med riktig distanse.
+- Legg til punkter manuelt og ved klikk, eksporter til GPX, les den inn igjen.
