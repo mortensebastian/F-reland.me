@@ -3,7 +3,10 @@
 Veiledning for arbeid i dette repoet.
 
 ## Om nettstedet
-- **foreland.me** er et statisk nettsted som hostes på **GitHub Pages** (se `CNAME`).
+- **foreland.me** er Mortens personlige nettsted – et utstillingsvindu som samler og
+  publiserer ting han jobber med og utvikler: prosjekter, web-apper, CV, og litt moro
+  ved siden av. Forsiden er en enkel meny av kort som lenker videre til hver underside.
+- Det er et statisk nettsted som hostes på **GitHub Pages** (se `CNAME`).
 - Det finnes **ingen backend, byggesteg eller rammeverk** – kun håndskrevne HTML-filer
   med innebygd CSS og litt vanilla JavaScript. En fil = én side.
 - Språk: **norsk** (bokmål). Ny tekst og kommentarer skrives på norsk.
