@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ekspedisjon · Foreland</title>
+<meta name="description" content="Fullførte ekspedisjoner og en ekspedisjonsplanlegger med kart og GPX." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<!-- Leaflet (gratis, åpen kildekode) for kart -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+  :root{--paper:#f3ede1;--ink:#20302f;--muted:#6c726a;--line:#d7cdb9;--accent:#2f7d72;--warm:#c0762f;--card:#faf6ee;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--paper);color:var(--ink);font-family:"Hanken Grotesk",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden;min-height:100vh;}
+  .contours{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;}
+  .wrap{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:clamp(2.2rem,7vw,5rem) clamp(1.4rem,6vw,2.5rem) 4rem;}
+  .back{display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;letter-spacing:.04em;color:var(--muted);text-decoration:none;margin-bottom:2.4rem;transition:color .2s,gap .2s;opacity:0;animation:rise .6s ease-out .05s forwards;}
+  .back:hover{color:var(--accent);gap:.75rem;}
+  .kicker{font-size:.78rem;letter-spacing:.32em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:1rem;opacity:0;animation:rise .7s ease-out .12s forwards;}
+  h1{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(2.8rem,11vw,4.5rem);line-height:.95;letter-spacing:-.02em;margin-bottom:1rem;opacity:0;animation:rise .8s ease-out .2s forwards;}
+  .lede{font-size:clamp(1.02rem,2.4vw,1.18rem);color:var(--muted);max-width:46ch;margin-bottom:2rem;opacity:0;animation:rise .8s ease-out .3s forwards;}
+
+  /* ---------- Fanevelger ---------- */
+  .tabs{display:flex;gap:.5rem;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.4rem;margin-bottom:2rem;opacity:0;animation:rise .8s ease-out .38s forwards;}
+  .tab{flex:1;border:none;background:transparent;color:var(--muted);font-family:"Hanken Grotesk",sans-serif;font-size:.92rem;font-weight:600;letter-spacing:.01em;padding:.7rem .6rem;border-radius:10px;cursor:pointer;transition:background .2s,color .2s;}
+  .tab:hover{color:var(--ink);}
+  .tab[aria-selected="true"]{background:var(--accent);color:#fff;box-shadow:0 6px 16px -10px rgba(47,125,114,.9);}
+
+  .panel[hidden]{display:none;}
+
+  /* ---------- Kort ---------- */
+  .grid{display:grid;gap:.9rem;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;opacity:0;animation:rise .7s ease-out forwards;}
+  .card:nth-child(1){animation-delay:.42s}.card:nth-child(2){animation-delay:.5s}.card:nth-child(3){animation-delay:.58s}
+  .card-head{display:flex;align-items:flex-start;gap:1.1rem;padding:1.35rem 1.5rem;cursor:pointer;list-style:none;}
+  .card-head::-webkit-details-marker{display:none;}
+  .num{font-family:"Fraunces",serif;font-size:.95rem;color:var(--accent);font-variant-numeric:tabular-nums;padding-top:.2rem;}
+  .card-body{flex:1;}
+  .card-title{font-family:"Fraunces",serif;font-size:1.3rem;font-weight:500;line-height:1.2;}
+  .card-desc{font-size:.92rem;color:var(--muted);margin-top:.3rem;}
+  .tag{display:inline-block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:.6rem;}
+  .chev{font-size:1.1rem;color:var(--muted);transition:transform .25s,color .25s;padding-top:.15rem;}
+  details[open] .chev{transform:rotate(90deg);color:var(--accent);}
+  .card-head:hover .chev{color:var(--accent);}
+
+  .card-detail{padding:0 1.5rem 1.4rem;border-top:1px solid var(--line);}
+  .detail-tools{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:1.1rem 0;}
+
+  /* ---------- Knapper / input ---------- */
+  .btn{display:inline-flex;align-items:center;gap:.4rem;font-family:"Hanken Grotesk",sans-serif;font-size:.86rem;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .85rem;cursor:pointer;transition:border-color .2s,color .2s,background .2s;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn-file{position:relative;overflow:hidden;}
+  .btn-file input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+  .field{display:inline-flex;align-items:center;gap:.35rem;font-size:.82rem;color:var(--muted);}
+  .field input{width:6.5rem;font-family:"Hanken Grotesk",sans-serif;font-size:.86rem;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:.42rem .5rem;}
+  .field input:focus{outline:none;border-color:var(--accent);}
+
+  /* ---------- Kart ---------- */
+  .map{height:340px;width:100%;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#e9e3d4;z-index:1;}
+  .leaflet-container{font-family:"Hanken Grotesk",sans-serif;}
+
+  /* ---------- Statistikk ---------- */
+  .stats{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem;}
+  .stat{flex:1;min-width:8rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;}
+  .stat b{display:block;font-family:"Fraunces",serif;font-size:1.35rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1;}
+  .stat span{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+
+  .hint{font-size:.82rem;color:var(--muted);margin-top:.4rem;}
+  .coordlist{margin-top:1rem;max-height:150px;overflow:auto;font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;background:var(--paper);}
+  .coordlist:empty{display:none;}
+  .coordlist div{display:flex;justify-content:space-between;gap:1rem;padding:.15rem 0;}
+  .coordlist .cidx{color:var(--accent);font-family:"Fraunces",serif;}
+
+  /* ---------- Planlegger-topp ---------- */
+  .planner-tools{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem;}
+
+  footer{margin-top:4rem;padding-top:1.8rem;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:.6rem 1.4rem;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted);opacity:0;animation:rise .8s ease-out .9s forwards;}
+  footer a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--accent);}
+  footer a:hover{color:var(--accent);}
+  .coords{font-variant-numeric:tabular-nums;letter-spacing:.04em;}
+  @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;}.back,.kicker,h1,.lede,.tabs,.card,footer{opacity:1;}}
+</style>
+</head>
+<body>
+<svg class="contours" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <g fill="none" stroke="#c9bfa8" stroke-width="1.1">
+    <path d="M-50 620 C 180 540, 420 700, 880 560" />
+    <path d="M-50 670 C 180 600, 420 760, 880 620" />
+    <path d="M-50 720 C 180 660, 420 820, 880 680" />
+    <path d="M620 -40 C 700 160, 540 300, 760 460" />
+    <path d="M680 -40 C 760 160, 600 300, 820 460" />
+  </g>
+</svg>
+
+<div class="wrap">
+  <a class="back" href="/">← Foreland</a>
+  <p class="kicker">Ekspedisjon</p>
+  <h1>Ekspedisjon</h1>
+  <p class="lede">Turer jeg har gått – og et verktøy for å planlegge de neste. Last opp en GPX-fil, eller tegn ruta selv i kartet.</p>
+
+  <!-- Fanevelger -->
+  <div class="tabs" role="tablist" aria-label="Velg visning">
+    <button class="tab" id="tab-done" role="tab" aria-selected="true" aria-controls="panel-done">Fullførte ekspedisjoner</button>
+    <button class="tab" id="tab-plan" role="tab" aria-selected="false" aria-controls="panel-plan">Ekspedisjonsplanlegger</button>
+  </div>
+
+  <!-- ============ FANE 1: FULLFØRTE ============ -->
+  <section class="panel" id="panel-done" role="tabpanel" aria-labelledby="tab-done">
+    <div class="grid" id="done-grid">
+      <!-- Kortene fylles inn av JS fra listen under, så det er lett å legge til flere -->
+    </div>
+  </section>
+
+  <!-- ============ FANE 2: PLANLEGGER ============ -->
+  <section class="panel" id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
+    <div class="planner-tools">
+      <label class="btn btn-file">Last opp GPX
+        <input type="file" id="plan-file" accept=".gpx,application/gpx+xml,text/xml" />
+      </label>
+      <button class="btn" id="plan-click" aria-pressed="false" type="button">Legg til punkt ved klikk</button>
+      <button class="btn" id="plan-undo" type="button">Angre siste</button>
+      <button class="btn" id="plan-clear" type="button">Tøm rute</button>
+      <button class="btn" id="plan-export" type="button">Last ned som GPX</button>
+    </div>
+    <div class="planner-tools">
+      <span class="field"><label for="plan-lat">Bredde</label><input id="plan-lat" type="number" step="any" placeholder="60.3913" /></span>
+      <span class="field"><label for="plan-lng">Lengde</label><input id="plan-lng" type="number" step="any" placeholder="5.3221" /></span>
+      <button class="btn" id="plan-add" type="button">Legg til punkt</button>
+    </div>
+
+    <div class="map" id="plan-map" aria-label="Planleggerkart"></div>
+
+    <div class="stats">
+      <div class="stat"><b id="plan-count">0</b><span>Punkter</span></div>
+      <div class="stat"><b id="plan-dist">0,0 km</b><span>Total distanse</span></div>
+    </div>
+    <p class="hint">Slå på «Legg til punkt ved klikk» og klikk i kartet, eller skriv inn koordinater manuelt. Markørene kan dras. Last opp en GPX-fil for å redigere en ferdig rute.</p>
+    <div class="coordlist" id="plan-coords"></div>
+  </section>
+
+  <footer>
+    <span>Skriv gjerne: <a href="mailto:hei@foreland.me">hei@foreland.me</a></span>
+    <span class="coords">© <span id="year"></span> · Foreland</span>
+  </footer>
+</div>
+
+<script>
+document.getElementById("year").textContent = new Date().getFullYear();
+
+/* ---------------------------------------------------------------------------
+   Kartlag (alle gratis, ingen API-nøkkel)
+--------------------------------------------------------------------------- */
+function baseLayers(){
+  const kartverket = L.tileLayer(
+    "https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png",
+    { maxZoom: 18, attribution: "© <a href='https://www.kartverket.no/'>Kartverket</a>" });
+  const topo = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    { maxZoom: 17, attribution: "© <a href='https://opentopomap.org/'>OpenTopoMap</a> (CC-BY-SA)" });
+  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxZoom: 19, attribution: "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>" });
+  return { "Kartverket topo": kartverket, "OpenTopoMap": topo, "OpenStreetMap": osm, _default: kartverket };
+}
+
+/* ---------------------------------------------------------------------------
+   Hjelpefunksjoner: GPX-parsing, distanse, høyde
+--------------------------------------------------------------------------- */
+function parseGPX(text){
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("Ugyldig GPX-fil.");
+  let nodes = doc.getElementsByTagName("trkpt");
+  if (!nodes.length) nodes = doc.getElementsByTagName("rtept");
+  if (!nodes.length) nodes = doc.getElementsByTagName("wpt");
+  const latlngs = [], eles = [];
+  for (const n of nodes){
+    const lat = parseFloat(n.getAttribute("lat"));
+    const lon = parseFloat(n.getAttribute("lon"));
+    if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+    latlngs.push([lat, lon]);
+    const ele = n.getElementsByTagName("ele")[0];
+    eles.push(ele ? parseFloat(ele.textContent) : null);
+  }
+  if (!latlngs.length) throw new Error("Fant ingen punkter i GPX-fila.");
+  const nameNode = doc.querySelector("trk > name, rte > name, name");
+  return { latlngs, eles, name: nameNode ? nameNode.textContent.trim() : null };
+}
+
+function haversine(a, b){
+  const R = 6371000, rad = d => d * Math.PI / 180;
+  const dLat = rad(b[0]-a[0]), dLon = rad(b[1]-a[1]);
+  const s = Math.sin(dLat/2)**2 + Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function totalDistance(pts){ let d=0; for (let i=1;i<pts.length;i++) d += haversine(pts[i-1], pts[i]); return d; }
+function elevationGain(eles){ let g=0; for (let i=1;i<eles.length;i++){ if (eles[i]!=null && eles[i-1]!=null){ const dz = eles[i]-eles[i-1]; if (dz>0) g += dz; } } return g; }
+function fmtKm(m){ return (m/1000).toFixed(1).replace(".", ",") + " km"; }
+function fmtM(m){ return Math.round(m) + " m"; }
+
+function buildGPX(latlngs, name){
+  const head = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<gpx version="1.1" creator="foreland.me" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+    '  <rte>\n    <name>' + (name || "Planlagt rute") + '</name>\n';
+  const body = latlngs.map(p => '    <rtept lat="' + p[0] + '" lon="' + p[1] + '"></rtept>').join("\n");
+  return head + body + "\n  </rte>\n</gpx>\n";
+}
+function download(filename, text){
+  const blob = new Blob([text], { type: "application/gpx+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------------------------------------------------------------------
+   FANE 1: Fullførte ekspedisjoner
+--------------------------------------------------------------------------- */
+const expeditions = [
+  { title: "Pilgrimstur Hovden–Røldal", desc: "Pilegrimsvandring over fjellet fra Hovden til Røldal.", tag: "Fullført · Fottur" },
+  { title: "Løpetur til Sandnos med overnatting", desc: "Løpetur inn til Sandnos med telt og overnatting.", tag: "Fullført · Løping" },
+  { title: "Gjøvik – Oslo på ski", desc: "Skitur fra Gjøvik til Oslo.", tag: "Fullført · Ski" },
+];
+
+const doneGrid = document.getElementById("done-grid");
+expeditions.forEach((exp, i) => {
+  const d = document.createElement("details");
+  d.className = "card";
+  d.innerHTML =
+    '<summary class="card-head">' +
+      '<span class="num">' + String(i+1).padStart(2,"0") + '</span>' +
+      '<span class="card-body">' +
+        '<span class="card-title">' + exp.title + '</span>' +
+        '<span class="card-desc">' + exp.desc + '</span>' +
+        '<span class="tag">' + exp.tag + '</span>' +
+      '</span>' +
+      '<span class="chev">›</span>' +
+    '</summary>' +
+    '<div class="card-detail">' +
+      '<div class="detail-tools">' +
+        '<label class="btn btn-file">Last opp GPX-fil' +
+          '<input type="file" accept=".gpx,application/gpx+xml,text/xml" />' +
+        '</label>' +
+        '<span class="hint" style="margin:0">Vis ruta for denne turen.</span>' +
+      '</div>' +
+      '<div class="map"></div>' +
+      '<div class="stats">' +
+        '<div class="stat"><b class="s-dist">–</b><span>Distanse</span></div>' +
+        '<div class="stat"><b class="s-ele">–</b><span>Høydemeter</span></div>' +
+        '<div class="stat"><b class="s-pts">–</b><span>Punkter</span></div>' +
+      '</div>' +
+    '</div>';
+  doneGrid.appendChild(d);
+
+  const mapEl = d.querySelector(".map");
+  const fileInput = d.querySelector('input[type=file]');
+  let map = null, track = null;
+
+  function ensureMap(){
+    if (map) return;
+    const layers = baseLayers();
+    map = L.map(mapEl, { layers: [layers._default], scrollWheelZoom: false }).setView([61, 8.5], 5);
+    L.control.layers({ "Kartverket topo": layers["Kartverket topo"], "OpenTopoMap": layers["OpenTopoMap"], "OpenStreetMap": layers["OpenStreetMap"] }).addTo(map);
+  }
+  // Rett opp størrelsen når kortet åpnes (Leaflet må vite at containeren er synlig)
+  d.addEventListener("toggle", () => { if (d.open){ ensureMap(); setTimeout(() => map.invalidateSize(), 60); } });
+
+  fileInput.addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const gpx = parseGPX(ev.target.result);
+        ensureMap();
+        if (track) map.removeLayer(track);
+        track = L.polyline(gpx.latlngs, { color: "#2f7d72", weight: 4 }).addTo(map);
+        L.circleMarker(gpx.latlngs[0], { radius: 6, color: "#2f7d72", fillColor:"#2f7d72", fillOpacity:1 }).addTo(track);
+        L.circleMarker(gpx.latlngs[gpx.latlngs.length-1], { radius: 6, color: "#c0762f", fillColor:"#c0762f", fillOpacity:1 }).addTo(track);
+        setTimeout(() => { map.invalidateSize(); map.fitBounds(track.getBounds(), { padding: [20,20] }); }, 60);
+        d.querySelector(".s-dist").textContent = fmtKm(totalDistance(gpx.latlngs));
+        const gain = elevationGain(gpx.eles);
+        d.querySelector(".s-ele").textContent = gain ? "+" + fmtM(gain) : "–";
+        d.querySelector(".s-pts").textContent = gpx.latlngs.length;
+      } catch (err) { alert(err.message); }
+    };
+    reader.readAsText(file);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   FANE 2: Planlegger
+--------------------------------------------------------------------------- */
+let planMap = null, planLine = null, planPoints = [], planMarkers = [], clickMode = false;
+
+function initPlanner(){
+  if (planMap) return;
+  const layers = baseLayers();
+  planMap = L.map("plan-map", { layers: [layers._default] }).setView([61.5, 8.5], 5);
+  L.control.layers({ "Kartverket topo": layers["Kartverket topo"], "OpenTopoMap": layers["OpenTopoMap"], "OpenStreetMap": layers["OpenStreetMap"] }).addTo(planMap);
+  planLine = L.polyline([], { color: "#2f7d72", weight: 4 }).addTo(planMap);
+  planMap.on("click", e => { if (clickMode) addPoint(e.latlng.lat, e.latlng.lng); });
+}
+
+function addPoint(lat, lng){
+  const idx = planPoints.length;
+  planPoints.push([lat, lng]);
+  const m = L.marker([lat, lng], { draggable: true }).addTo(planMap);
+  m.on("drag", ev => { const p = ev.target.getLatLng(); const i = planMarkers.indexOf(m); planPoints[i] = [p.lat, p.lng]; redrawPlan(false); });
+  m.on("dragend", () => redrawPlan());
+  planMarkers.push(m);
+  redrawPlan();
+}
+function removeLast(){
+  if (!planPoints.length) return;
+  planPoints.pop();
+  planMap.removeLayer(planMarkers.pop());
+  redrawPlan();
+}
+function clearPlan(){
+  planPoints = [];
+  planMarkers.forEach(m => planMap.removeLayer(m));
+  planMarkers = [];
+  redrawPlan();
+}
+function redrawPlan(updateList = true){
+  planLine.setLatLngs(planPoints);
+  document.getElementById("plan-count").textContent = planPoints.length;
+  document.getElementById("plan-dist").textContent = fmtKm(totalDistance(planPoints));
+  if (updateList){
+    const box = document.getElementById("plan-coords");
+    box.innerHTML = planPoints.map((p, i) =>
+      '<div><span class="cidx">' + (i+1) + '</span><span>' + p[0].toFixed(5) + ', ' + p[1].toFixed(5) + '</span></div>').join("");
+  }
+}
+
+document.getElementById("plan-click").addEventListener("click", e => {
+  clickMode = !clickMode;
+  e.target.setAttribute("aria-pressed", String(clickMode));
+});
+document.getElementById("plan-add").addEventListener("click", () => {
+  const lat = parseFloat(document.getElementById("plan-lat").value);
+  const lng = parseFloat(document.getElementById("plan-lng").value);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) { alert("Skriv inn gyldig bredde- og lengdegrad."); return; }
+  addPoint(lat, lng);
+  planMap.panTo([lat, lng]);
+  document.getElementById("plan-lat").value = "";
+  document.getElementById("plan-lng").value = "";
+});
+document.getElementById("plan-undo").addEventListener("click", removeLast);
+document.getElementById("plan-clear").addEventListener("click", clearPlan);
+document.getElementById("plan-export").addEventListener("click", () => {
+  if (planPoints.length < 2) { alert("Legg til minst to punkter før du eksporterer."); return; }
+  download("rute-" + new Date().toISOString().slice(0,10) + ".gpx", buildGPX(planPoints, "Planlagt rute"));
+});
+document.getElementById("plan-file").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const gpx = parseGPX(ev.target.result);
+      clearPlan();
+      gpx.latlngs.forEach(p => addPoint(p[0], p[1]));
+      setTimeout(() => planMap.fitBounds(planLine.getBounds(), { padding: [20,20] }), 60);
+    } catch (err) { alert(err.message); }
+  };
+  reader.readAsText(file);
+});
+
+/* ---------------------------------------------------------------------------
+   Fanebytte
+--------------------------------------------------------------------------- */
+const tabDone = document.getElementById("tab-done");
+const tabPlan = document.getElementById("tab-plan");
+const panelDone = document.getElementById("panel-done");
+const panelPlan = document.getElementById("panel-plan");
+
+function selectTab(which){
+  const done = which === "done";
+  tabDone.setAttribute("aria-selected", String(done));
+  tabPlan.setAttribute("aria-selected", String(!done));
+  panelDone.hidden = !done;
+  panelPlan.hidden = done;
+  if (!done){ initPlanner(); setTimeout(() => planMap.invalidateSize(), 60); }
+}
+tabDone.addEventListener("click", () => selectTab("done"));
+tabPlan.addEventListener("click", () => selectTab("plan"));
+</script>
+</body>
+</html>
