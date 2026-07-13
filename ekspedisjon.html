@@ -54,6 +54,13 @@
   .card-detail{padding:0 1.5rem 1.4rem;border-top:1px solid var(--line);}
   .detail-tools{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:1.1rem 0;}
 
+  /* ---------- Fortelling ---------- */
+  .story{padding-top:1.2rem;}
+  .story-lede{font-size:1rem;color:var(--muted);font-style:italic;margin-bottom:1rem;}
+  .story h3{font-family:"Fraunces",serif;font-weight:500;font-size:1.05rem;color:var(--accent);margin:1.3rem 0 .35rem;}
+  .story p{font-size:.95rem;margin-bottom:.7rem;}
+  .story p:last-child{margin-bottom:0;}
+
   /* ---------- Knapper / input ---------- */
   .btn{display:inline-flex;align-items:center;gap:.4rem;font-family:"Hanken Grotesk",sans-serif;font-size:.86rem;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .85rem;cursor:pointer;transition:border-color .2s,color .2s,background .2s;}
   .btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -225,7 +232,31 @@ function download(filename, text){
    FANE 1: Fullførte ekspedisjoner
 --------------------------------------------------------------------------- */
 const expeditions = [
-  { title: "Pilgrimstur Hovden–Røldal", desc: "Pilegrimsvandring over fjellet fra Hovden til Røldal.", tag: "Fullført · Fottur" },
+  {
+    title: "Pilgrimstur Hovden–Røldal",
+    desc: "Tre dager alene over Setesdalsheiene, fra Hovden til Røldal.",
+    tag: "Fullført · Fottur · 3 dager",
+    story: `
+      <p class="story-lede">En personlig pilegrimstur gjennom fjellet. Målet var opplevelsen av naturen, stillheten og det å gå alene over flere dager.</p>
+
+      <h3>Dag 1 – Hovden til Sloaros</h3>
+      <p>Første etappe gikk fra Hovden til Sloaros turisthytte, hvor jeg overnattet. Før avreise hadde jeg laget ferdige matrasjoner – havregrøten var porsjonert på forhånd med havregryn, salt og øvrige ingredienser, slik at frokosten skulle være enkel å lage. Morgenen på Sloaros var kald, og jeg startet tidlig på dag to.</p>
+
+      <h3>Dag 2 – Via Holmavatnet og Bamsebu</h3>
+      <p>Fra Sloaros gikk turen via Holmavatnet mot Bamsebu. Underveis kom jeg forbi gamle reinsdyranlegg med jaktgroper – fascinerende spor etter den gamle villreinjakten.</p>
+      <p>Ved Bamsebu fikk turen en historisk dimensjon. Steinbua har tilknytning til motstandsarbeidet under andre verdenskrig. Det var ikke mulig å gå inn, men det gjorde inntrykk å stå på et sted hvor mennesker levde og skjulte seg under krevende forhold.</p>
+      <p>Etter Bamsebu valgte jeg nordsiden av Holmavatnet, der det ikke finnes noen tydelig sti – åpent høyfjell med lite som minnet om en opparbeidet rute. På ettermiddagen var det meldt kraftig tordenstorm, og jeg fulgte utviklingen nøye mens uværet beveget seg i området. En viktig påminnelse om hvor utsatt man er i høyfjellet.</p>
+
+      <h3>Natt i «Dødsskyggens dal»</h3>
+      <p>Jeg gikk alene hele dagen uten å møte mennesker. Da kvelden kom, fant jeg ly ved en bergvegg. Jeg hadde ikke med telt, bare en overlevelsespose, og selv om det var midt på sommeren ble natten kald.</p>
+      <p>Jeg sov lite, og i løpet av natten begynte jeg å hallusinere. Jeg hørte blant annet sauebjeller som passerte, selv om det ikke var dyr i området. Om det skyldtes kulde, utmattelse eller søvnmangel vet jeg ikke, men opplevelsen gjorde sterkt inntrykk. Derfor har jeg i ettertid kalt stedet «Dødsskyggens dal».</p>
+
+      <h3>Dag 3 – Mot Røldal</h3>
+      <p>Tidlig neste morgen fortsatte jeg mot Røldal. Etter flere dager alene kjente jeg hvor ensom jeg hadde blitt. Da mobildekningen kom tilbake, ringte jeg mormor – det var godt å høre en kjent stemme.</p>
+      <p>Den siste etappen gikk ned mot Røldal. Jeg fulgte veien med hårnålssvingene, men tok også snarveier ned de bratte bakkene for å rekke bussen. Jeg kom omtrent en halvtime for sent. Et øyeblikk vurderte jeg å snu og gå tilbake, men innså at det viktigste var selve reisen – ikke å rekke bussen.</p>
+      <p>Turen ble en sterk opplevelse av ensomhet, naturens storhet og verdien av å vandre alene gjennom fjellet.</p>
+    `,
+  },
   { title: "Løpetur til Sandnos med overnatting", desc: "Løpetur inn til Sandnos med telt og overnatting.", tag: "Fullført · Løping" },
   { title: "Gjøvik – Oslo på ski", desc: "Skitur fra Gjøvik til Oslo.", tag: "Fullført · Ski" },
 ];
@@ -245,6 +276,7 @@ expeditions.forEach((exp, i) => {
       '<span class="chev">›</span>' +
     '</summary>' +
     '<div class="card-detail">' +
+      (exp.story ? '<div class="story">' + exp.story + '</div>' : '') +
       '<div class="detail-tools">' +
         '<label class="btn btn-file">Last opp GPX-fil' +
           '<input type="file" accept=".gpx,application/gpx+xml,text/xml" />' +
