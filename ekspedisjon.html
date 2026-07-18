@@ -250,6 +250,8 @@ const expeditions = [
     tag: "Fullført · Fottur · 3 dager",
     route: {
       line: pilgrimHovdenRoldal,
+      overnight: [59.77421, 7.06525],   // Kvanndalen, like under Kistenuten – natt 2
+      overnightLabel: "Kvanndalen",
       dist: "54,1 km",
       ele: "+1 850 m",
       days: "3",
@@ -266,8 +268,9 @@ const expeditions = [
       <p>Etter Bamsebu valgte jeg nordsiden av Holmavatnet, der det ikke finnes noen tydelig sti – åpent høyfjell med lite som minnet om en opparbeidet rute. På ettermiddagen var det meldt kraftig tordenstorm, og jeg fulgte utviklingen nøye mens uværet beveget seg i området. En viktig påminnelse om hvor utsatt man er i høyfjellet.</p>
 
       <h3>Natt i «Dødsskyggens dal»</h3>
+      <p>Dalen heter egentlig Kvanndalen og ligger like under Kistenuten – det kjente trefylkespunktet der Telemark, Rogaland og Hordaland (nå Vestland) møtes. Men jeg kalte den «Dødsskyggens dal», fordi den føltes så øde, og fordi jeg var så ensom og kald.</p>
       <p>Jeg gikk alene hele dagen uten å møte mennesker. Da kvelden kom, fant jeg ly ved en bergvegg. Jeg hadde ikke med telt, bare en overlevelsespose, og selv om det var midt på sommeren ble natten kald.</p>
-      <p>Jeg sov lite, og i løpet av natten begynte jeg å hallusinere. Jeg hørte blant annet sauebjeller som passerte, selv om det ikke var dyr i området. Om det skyldtes kulde, utmattelse eller søvnmangel vet jeg ikke, men opplevelsen gjorde sterkt inntrykk. Derfor har jeg i ettertid kalt stedet «Dødsskyggens dal».</p>
+      <p>Jeg sov lite, og i løpet av natten begynte jeg å hallusinere. Jeg hørte blant annet sauebjeller som passerte, selv om det ikke var dyr i området. Om det skyldtes kulde, utmattelse eller søvnmangel vet jeg ikke, men opplevelsen gjorde sterkt inntrykk.</p>
 
       <h3>Dag 3 – Mot Røldal</h3>
       <p>Tidlig neste morgen fortsatte jeg mot Røldal. Etter flere dager alene kjente jeg hvor ensom jeg hadde blitt. Da mobildekningen kom tilbake, ringte jeg mormor – det var godt å høre en kjent stemme.</p>
@@ -380,7 +383,7 @@ expeditions.forEach((exp, i) => {
   // Tegn en ferdig rute (start-/overnattings-/sluttmarkør) i kartet.
   // Alt samles i en featureGroup slik at markørene kan legges til og fjernes,
   // og slik at getBounds() dekker hele ruta.
-  function drawRoute(latlngs, overnight){
+  function drawRoute(latlngs, overnight, overnightLabel){
     if (track) map.removeLayer(track);
     track = L.featureGroup().addTo(map);
     L.polyline(latlngs, { color: "#2f7d72", weight: 4 }).addTo(track);
@@ -388,7 +391,7 @@ expeditions.forEach((exp, i) => {
       .bindTooltip("Start").addTo(track);
     if (overnight)
       L.circleMarker(overnight, { radius: 6, color: "#c0762f", fillColor:"#faf6ee", fillOpacity:1, weight: 3 })
-        .bindTooltip("Overnatting").addTo(track);
+        .bindTooltip(overnightLabel || "Overnatting").addTo(track);
     L.circleMarker(latlngs[latlngs.length-1], { radius: 6, color: "#c0762f", fillColor:"#c0762f", fillOpacity:1 })
       .bindTooltip("Mål").addTo(track);
     setTimeout(() => { map.invalidateSize(); map.fitBounds(track.getBounds(), { padding: [20,20] }); }, 60);
@@ -400,7 +403,7 @@ expeditions.forEach((exp, i) => {
   d.addEventListener("toggle", () => {
     if (!d.open) return;
     ensureMap();
-    if (baked && !drawn){ drawRoute(baked.line, baked.overnight); drawn = true; }
+    if (baked && !drawn){ drawRoute(baked.line, baked.overnight, baked.overnightLabel); drawn = true; }
     else setTimeout(() => map.invalidateSize(), 60);
   });
 
