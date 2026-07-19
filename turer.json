@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "turer": [
+    {
+      "id": "eksempel-hardangervidda",
+      "navn": "Eksempeltur over Hardangervidda",
+      "status": "planlagt",
+      "type": "Fottur",
+      "dato": "2026-08-15",
+      "dager": 3,
+      "beskrivelse": "Mal-tur som viser alle felter – rediger eller slett den i turer.json.",
+      "gpx": "/turer/eksempel.gpx",
+      "distanse_km": 42.0,
+      "stigning_m": 900,
+      "notater": "Første gang jeg planlegger en tur over vidda. Vil gå rolig og ta bilder underveis. Sjekke værmelding kvelden før avreise.",
+      "etapper": [
+        {
+          "navn": "Dag 1 – Inn til første hytte",
+          "notat": "Rolig start, mest myrterreng. Fyll vann ved bekken før siste stigning.",
+          "sporsmal": [
+            "Er broa over elva åpen i august?",
+            "Trengs det forhåndsbooking av hytta?"
+          ]
+        },
+        {
+          "navn": "Dag 2 – Over høyfjellet",
+          "notat": "Den lengste etappen. Lite ly hvis været slår om.",
+          "sporsmal": [
+            "Finnes det nødbu langs ruta?"
+          ]
+        },
+        {
+          "navn": "Dag 3 – Ned til bygda",
+          "notat": "Kort dag, mest nedover. Rekke bussen kl. 15.",
+          "sporsmal": []
+        }
+      ],
+      "pakkeliste": [
+        {
+          "gruppe": "Klær",
+          "ting": ["Ullundertøy", "Regnjakke", "Ekstra sokker", "Lue og votter"]
+        },
+        {
+          "gruppe": "Utstyr",
+          "ting": ["Telt", "Sovepose", "Liggeunderlag", "Hodelykt", "Kart og kompass"]
+        },
+        {
+          "gruppe": "Mat",
+          "ting": ["Havregrøt (porsjonert)", "Turmat x3", "Kokeapparat", "Termos"]
+        }
+      ]
+    }
+  ]
+}
