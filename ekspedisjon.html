@@ -61,6 +61,28 @@
   .story p{font-size:.95rem;margin-bottom:.7rem;}
   .story p:last-child{margin-bottom:0;}
 
+  /* ---------- Notater / etapper / pakkeliste ---------- */
+  .section{margin-top:1.4rem;}
+  .section > h3{font-family:"Fraunces",serif;font-weight:500;font-size:1.05rem;color:var(--accent);margin-bottom:.5rem;}
+  .notes p{font-size:.95rem;margin-bottom:.5rem;}
+  .notes p:last-child{margin-bottom:0;}
+
+  .etappe{border-left:2px solid var(--line);padding:.15rem 0 .15rem 1rem;margin-bottom:1rem;}
+  .etappe:last-child{margin-bottom:0;}
+  .etappe h4{font-family:"Hanken Grotesk",sans-serif;font-size:.98rem;font-weight:600;margin-bottom:.25rem;}
+  .etappe p{font-size:.92rem;color:var(--muted);margin-bottom:.45rem;}
+  .sporsmal{list-style:none;display:flex;flex-direction:column;gap:.3rem;}
+  .sporsmal li{position:relative;font-size:.9rem;padding-left:1.4rem;color:var(--ink);}
+  .sporsmal li::before{content:"?";position:absolute;left:0;top:-.05rem;width:1.05rem;height:1.05rem;line-height:1.05rem;text-align:center;font-family:"Fraunces",serif;font-size:.78rem;color:var(--warm);border:1px solid var(--warm);border-radius:50%;}
+
+  .pakke-gruppe{margin-bottom:.9rem;}
+  .pakke-gruppe:last-child{margin-bottom:0;}
+  .pakke-gruppe h4{font-family:"Hanken Grotesk",sans-serif;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem;}
+  .pakke-liste{list-style:none;display:grid;gap:.15rem;}
+  .pakke-liste li label{display:flex;align-items:center;gap:.55rem;font-size:.92rem;cursor:pointer;padding:.15rem 0;}
+  .pakke-liste input{width:1.05rem;height:1.05rem;accent-color:var(--accent);cursor:pointer;flex:none;}
+  .pakke-liste input:checked + span{color:var(--muted);text-decoration:line-through;}
+
   /* ---------- Knapper / input ---------- */
   .btn{display:inline-flex;align-items:center;gap:.4rem;font-family:"Hanken Grotesk",sans-serif;font-size:.86rem;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .85rem;cursor:pointer;transition:border-color .2s,color .2s,background .2s;}
   .btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -117,7 +139,7 @@
 
   <!-- Fanevelger -->
   <div class="tabs" role="tablist" aria-label="Velg visning">
-    <button class="tab" id="tab-done" role="tab" aria-selected="true" aria-controls="panel-done">Fullførte ekspedisjoner</button>
+    <button class="tab" id="tab-done" role="tab" aria-selected="true" aria-controls="panel-done">Ekspedisjoner</button>
     <button class="tab" id="tab-plan" role="tab" aria-selected="false" aria-controls="panel-plan">Ekspedisjonsplanlegger</button>
   </div>
 
@@ -323,52 +345,138 @@ const expeditions = [
 ];
 
 const doneGrid = document.getElementById("done-grid");
-expeditions.forEach((exp, i) => {
+
+/* Enkel escaping for tekst som kommer fra turer.json (Mortens eget innhold,
+   men vi unngår at «<» e.l. bryter oppsettet). */
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c])); }
+
+// Fritekst med linjeskift → avsnitt.
+function renderNotes(text){
+  const paras = String(text).split(/\n+/).map(t => t.trim()).filter(Boolean);
+  if (!paras.length) return "";
+  return '<div class="section notes"><h3>Notater</h3>' +
+    paras.map(p => '<p>' + esc(p) + '</p>').join("") + '</div>';
+}
+
+// Etapper med notat og eventuelle spørsmål for planlegging.
+function renderEtapper(etapper){
+  if (!etapper || !etapper.length) return "";
+  const items = etapper.map(e => {
+    const q = (e.sporsmal && e.sporsmal.length)
+      ? '<ul class="sporsmal">' + e.sporsmal.map(s => '<li>' + esc(s) + '</li>').join("") + '</ul>'
+      : "";
+    return '<div class="etappe">' +
+      (e.navn ? '<h4>' + esc(e.navn) + '</h4>' : "") +
+      (e.notat ? '<p>' + esc(e.notat) + '</p>' : "") +
+      q +
+    '</div>';
+  }).join("");
+  return '<div class="section"><h3>Etapper</h3>' + items + '</div>';
+}
+
+// Pakkeliste. Selve lista deles med alle; avkryssing huskes lokalt per nettleser.
+function renderPakke(pakkeliste, turId){
+  if (!pakkeliste || !pakkeliste.length) return "";
+  const groups = pakkeliste.map((g, gi) => {
+    const rows = (g.ting || []).map((t, ti) => {
+      const key = "pakke:" + turId + ":" + gi + ":" + ti;
+      const checked = localStorage.getItem(key) === "1" ? " checked" : "";
+      return '<li><label><input type="checkbox" data-key="' + esc(key) + '"' + checked + ' />' +
+        '<span>' + esc(t) + '</span></label></li>';
+    }).join("");
+    return '<div class="pakke-gruppe">' +
+      (g.gruppe ? '<h4>' + esc(g.gruppe) + '</h4>' : "") +
+      '<ul class="pakke-liste">' + rows + '</ul>' +
+    '</div>';
+  }).join("");
+  return '<div class="section pakke"><h3>Utstyr og pakkeliste</h3>' + groups + '</div>';
+}
+
+// Gjør en oppføring fra turer.json om til samme form som de innebygde turene.
+function normalizeManifest(t){
+  const parts = [ t.status === "planlagt" ? "Planlagt" : "Fullført" ];
+  if (t.type) parts.push(t.type);
+  if (t.dager) parts.push(t.dager + (Number(t.dager) === 1 ? " dag" : " dager"));
+  return {
+    id: t.id,
+    title: t.navn,
+    desc: t.beskrivelse,
+    tag: parts.join(" · "),
+    gpxUrl: t.gpx || null,
+    stats: {
+      dist: t.distanse_km != null ? String(t.distanse_km).replace(".", ",") + " km" : null,
+      ele: t.stigning_m != null ? "+" + t.stigning_m + " m" : null,
+      days: t.dager != null ? String(t.dager) : null,
+    },
+    notater: t.notater || null,
+    etapper: t.etapper || null,
+    pakkeliste: t.pakkeliste || null,
+  };
+}
+
+function renderExpedition(exp, i){
   const d = document.createElement("details");
   d.className = "card";
 
-  // Turer med innebygd rute (exp.route) tegner sporet automatisk og viser
-  // ferdig utregnet statistikk. Øvrige turer lar deg laste opp en GPX-fil selv.
-  const baked = exp.route;
-  const tools = baked
-    ? '<div class="detail-tools">' +
-        '<span class="hint" style="margin:0">Ruta er hentet fra Garmin og tegnes automatisk under.</span>' +
-      '</div>'
-    : '<div class="detail-tools">' +
-        '<label class="btn btn-file">Last opp GPX-fil' +
-          '<input type="file" accept=".gpx,application/gpx+xml,text/xml" />' +
-        '</label>' +
+  const baked = exp.route;                       // innebygd rute (koordinatliste)
+  const gpxUrl = exp.gpxUrl;                      // rute som lastes fra en GPX-fil
+  const allowUpload = exp.allowUpload;            // la brukeren laste opp GPX selv
+  const hasRoute = !!(baked || gpxUrl || allowUpload);
+
+  let tools = "";
+  if (baked)
+    tools = '<div class="detail-tools"><span class="hint" style="margin:0">Ruta er hentet fra Garmin og tegnes automatisk under.</span></div>';
+  else if (gpxUrl)
+    tools = '<div class="detail-tools"><span class="hint" style="margin:0">Ruta tegnes automatisk under.</span></div>';
+  else if (allowUpload)
+    tools = '<div class="detail-tools">' +
+        '<label class="btn btn-file">Last opp GPX-fil<input type="file" accept=".gpx,application/gpx+xml,text/xml" /></label>' +
         '<span class="hint" style="margin:0">Vis ruta for denne turen.</span>' +
       '</div>';
-  const stats = baked
+
+  // Statistikk: dager for ferdige ruter, punkter når man laster opp selv.
+  const st = baked
+    ? { dist: baked.dist, ele: baked.ele, third: baked.days, thirdLabel: "Dager", thirdClass: "s-days" }
+    : { dist: (exp.stats && exp.stats.dist) || "–", ele: (exp.stats && exp.stats.ele) || "–",
+        third: (exp.stats && exp.stats.days) || "–",
+        thirdLabel: allowUpload ? "Punkter" : "Dager",
+        thirdClass: allowUpload ? "s-pts" : "s-days" };
+  const stats = hasRoute
     ? '<div class="stats">' +
-        '<div class="stat"><b class="s-dist">' + baked.dist + '</b><span>Distanse</span></div>' +
-        '<div class="stat"><b class="s-ele">' + baked.ele + '</b><span>Høydemeter</span></div>' +
-        '<div class="stat"><b class="s-days">' + baked.days + '</b><span>Dager</span></div>' +
+        '<div class="stat"><b class="s-dist">' + st.dist + '</b><span>Distanse</span></div>' +
+        '<div class="stat"><b class="s-ele">' + st.ele + '</b><span>Høydemeter</span></div>' +
+        '<div class="stat"><b class="' + st.thirdClass + '">' + st.third + '</b><span>' + st.thirdLabel + '</span></div>' +
       '</div>'
-    : '<div class="stats">' +
-        '<div class="stat"><b class="s-dist">–</b><span>Distanse</span></div>' +
-        '<div class="stat"><b class="s-ele">–</b><span>Høydemeter</span></div>' +
-        '<div class="stat"><b class="s-pts">–</b><span>Punkter</span></div>' +
-      '</div>';
+    : "";
 
   d.innerHTML =
     '<summary class="card-head">' +
       '<span class="num">' + String(i+1).padStart(2,"0") + '</span>' +
       '<span class="card-body">' +
-        '<span class="card-title">' + exp.title + '</span>' +
-        '<span class="card-desc">' + exp.desc + '</span>' +
-        '<span class="tag">' + exp.tag + '</span>' +
+        '<span class="card-title">' + esc(exp.title) + '</span>' +
+        '<span class="card-desc">' + esc(exp.desc) + '</span>' +
+        '<span class="tag">' + esc(exp.tag) + '</span>' +
       '</span>' +
       '<span class="chev">›</span>' +
     '</summary>' +
     '<div class="card-detail">' +
       (exp.story ? '<div class="story">' + exp.story + '</div>' : '') +
+      (exp.notater ? renderNotes(exp.notater) : '') +
+      renderEtapper(exp.etapper) +
       tools +
-      '<div class="map"></div>' +
+      (hasRoute ? '<div class="map"></div>' : '') +
       stats +
+      renderPakke(exp.pakkeliste, exp.id || ("tur-" + i)) +
     '</div>';
   doneGrid.appendChild(d);
+
+  // Husk avkryssing i pakkelista lokalt.
+  d.querySelectorAll('.pakke-liste input[type=checkbox]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) localStorage.setItem(cb.dataset.key, "1");
+      else localStorage.removeItem(cb.dataset.key);
+    });
+  });
 
   const mapEl = d.querySelector(".map");
   let map = null, track = null;
@@ -381,8 +489,6 @@ expeditions.forEach((exp, i) => {
   }
 
   // Tegn en ferdig rute (start-/overnattings-/sluttmarkør) i kartet.
-  // Alt samles i en featureGroup slik at markørene kan legges til og fjernes,
-  // og slik at getBounds() dekker hele ruta.
   function drawRoute(latlngs, overnight, overnightLabel){
     if (track) map.removeLayer(track);
     track = L.featureGroup().addTo(map);
@@ -398,12 +504,24 @@ expeditions.forEach((exp, i) => {
   }
 
   // Rett opp størrelsen når kortet åpnes (Leaflet må vite at containeren er synlig).
-  // Innebygde ruter tegnes ved første åpning.
   let drawn = false;
   d.addEventListener("toggle", () => {
-    if (!d.open) return;
+    if (!d.open || !hasRoute) return;
     ensureMap();
     if (baked && !drawn){ drawRoute(baked.line, baked.overnight, baked.overnightLabel); drawn = true; }
+    else if (gpxUrl && !drawn){
+      drawn = true;
+      fetch(gpxUrl)
+        .then(r => { if (!r.ok) throw new Error("Fant ikke GPX-fila."); return r.text(); })
+        .then(text => {
+          const gpx = parseGPX(text);
+          drawRoute(gpx.latlngs);
+          if (!(exp.stats && exp.stats.dist)) d.querySelector(".s-dist").textContent = fmtKm(totalDistance(gpx.latlngs));
+          const gain = elevationGain(gpx.eles);
+          if (!(exp.stats && exp.stats.ele) && gain) d.querySelector(".s-ele").textContent = "+" + fmtM(gain);
+        })
+        .catch(err => { drawn = false; console.warn(err.message); });
+    }
     else setTimeout(() => map.invalidateSize(), 60);
   });
 
@@ -425,7 +543,20 @@ expeditions.forEach((exp, i) => {
     };
     reader.readAsText(file);
   });
-});
+}
+
+// Innebygde turer: ferdige ruter tegnes automatisk, øvrige lar deg laste opp GPX.
+expeditions.forEach((exp, i) => renderExpedition(Object.assign({}, exp, { allowUpload: !exp.route }), i));
+
+// Datadrevne turer fra turer.json (planlagte og fullførte). Legg til turer der
+// – se turer/LES-MEG.md. Feiler stille hvis fila mangler (f.eks. lokalt uten server).
+fetch("/turer.json")
+  .then(r => r.ok ? r.json() : null)
+  .then(data => {
+    if (!data || !Array.isArray(data.turer)) return;
+    data.turer.forEach((t, j) => renderExpedition(normalizeManifest(t), expeditions.length + j));
+  })
+  .catch(() => {});
 
 /* ---------------------------------------------------------------------------
    FANE 2: Planlegger
