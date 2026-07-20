@@ -130,6 +130,13 @@
   .map{height:340px;width:100%;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#e9e3d4;z-index:1;}
   .leaflet-container{font-family:"Hanken Grotesk",sans-serif;}
 
+  /* Redigeringsmeny på hvert rutepunkt */
+  .pt-title{font-size:.78rem;color:var(--muted);margin-bottom:.4rem;font-variant-numeric:tabular-nums;}
+  .pt-actions{display:flex;flex-direction:column;gap:.35rem;min-width:9.5rem;}
+  .pt-actions .btn{width:100%;justify-content:center;font-size:.82rem;padding:.4rem .55rem;}
+  .pt-actions .pt-del{color:var(--warm);border-color:var(--warm);}
+  .pt-actions .pt-del:hover{background:var(--warm);color:#fff;}
+
   /* ---------- Statistikk ---------- */
   .stats{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem;}
   .stat{flex:1;min-width:8rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;}
@@ -206,7 +213,7 @@
       <div class="stat"><b id="plan-count">0</b><span>Punkter</span></div>
       <div class="stat"><b id="plan-dist">0,0 km</b><span>Total distanse</span></div>
     </div>
-    <p class="hint">Slå på «Legg til punkt ved klikk» og klikk i kartet, eller skriv inn koordinater manuelt. Markørene kan dras. Last opp en GPX-fil for å redigere en ferdig rute.</p>
+    <p class="hint">Slå på «Legg til punkt ved klikk» og klikk i kartet, eller skriv inn koordinater manuelt. Markørene kan dras. <strong>Klikk på et punkt</strong> for å slette det eller sette inn et nytt før eller etter. Last opp en GPX-fil for å redigere en ferdig rute.</p>
     <div class="coordlist" id="plan-coords"></div>
 
     <!-- Lag en ferdig turer.json-oppføring av det du har planlagt -->
@@ -838,21 +845,71 @@ function initPlanner(){
   planMap.on("click", e => { if (clickMode) addPoint(e.latlng.lat, e.latlng.lng); });
 }
 
-function addPoint(lat, lng){
-  const idx = planPoints.length;
-  planPoints.push([lat, lng]);
-  const m = L.marker([lat, lng], { draggable: true }).addTo(planMap);
-  m.on("drag", ev => { const p = ev.target.getLatLng(); const i = planMarkers.indexOf(m); planPoints[i] = [p.lat, p.lng]; redrawPlan(false); });
+// Enkel geometri for å sette inn nye punkter. Midtpunkt mellom to naboer, eller
+// en «speiling» utover når vi forlenger ruta i hver ende.
+function midpoint(a, b){ return [(a[0]+b[0])/2, (a[1]+b[1])/2]; }
+function mirror(a, b){ return [2*a[0]-b[0], 2*a[1]-b[1]]; }
+function offset(a){ return [a[0]+0.01, a[1]+0.01]; }
+
+// Bygg redigeringsmenyen som vises når du klikker på et rutepunkt.
+function buildPointPopup(m){
+  const el = document.createElement("div");
+  el.innerHTML =
+    '<p class="pt-title"></p>' +
+    '<div class="pt-actions">' +
+      '<button class="btn pt-before" type="button">+ Punkt før</button>' +
+      '<button class="btn pt-after" type="button">+ Punkt etter</button>' +
+      '<button class="btn pt-del" type="button">Slett punkt</button>' +
+    '</div>';
+  // Indeksen finnes dynamisk ved klikk, så den holder seg riktig etter inn-/utsetting.
+  el.querySelector(".pt-before").addEventListener("click", () => { const i = planMarkers.indexOf(m); if (i>=0){ m.closePopup(); insertPoint(i); } });
+  el.querySelector(".pt-after").addEventListener("click", () => { const i = planMarkers.indexOf(m); if (i>=0){ m.closePopup(); insertPoint(i+1); } });
+  el.querySelector(".pt-del").addEventListener("click", () => { const i = planMarkers.indexOf(m); if (i>=0) deletePoint(i); });
+  // Vis punktnummeret når menyen åpnes.
+  m.on("popupopen", () => { const t = el.querySelector(".pt-title"); const i = planMarkers.indexOf(m); if (t) t.textContent = "Punkt " + (i+1) + " av " + planPoints.length; });
+  return el;
+}
+
+function makeMarker(lat, lng){
+  const m = L.marker([lat, lng], { draggable: true });
+  m.on("drag", ev => { const p = ev.target.getLatLng(); const i = planMarkers.indexOf(m); if (i>=0){ planPoints[i] = [p.lat, p.lng]; redrawPlan(false); } });
   m.on("dragend", () => redrawPlan());
-  planMarkers.push(m);
+  m.bindPopup(buildPointPopup(m));
+  return m;
+}
+
+// Legg til et punkt bakerst, eller sett det inn på en gitt indeks.
+function addPoint(lat, lng, atIndex){
+  const m = makeMarker(lat, lng).addTo(planMap);
+  if (atIndex == null || atIndex >= planPoints.length){
+    planPoints.push([lat, lng]); planMarkers.push(m);
+  } else {
+    planPoints.splice(atIndex, 0, [lat, lng]); planMarkers.splice(atIndex, 0, m);
+  }
   redrawPlan();
 }
-function removeLast(){
-  if (!planPoints.length) return;
-  planPoints.pop();
-  planMap.removeLayer(planMarkers.pop());
+
+// Sett inn et nytt punkt på indeks idx (0 = først, planPoints.length = sist).
+function insertPoint(idx){
+  const n = planPoints.length;
+  if (!n) return;
+  let np;
+  if (idx <= 0)      np = n >= 2 ? mirror(planPoints[0], planPoints[1]) : offset(planPoints[0]);
+  else if (idx >= n) np = n >= 2 ? mirror(planPoints[n-1], planPoints[n-2]) : offset(planPoints[n-1]);
+  else               np = midpoint(planPoints[idx-1], planPoints[idx]);
+  addPoint(np[0], np[1], idx);
+  planMap.panTo(np);
+}
+
+// Fjern punktet på indeks i.
+function deletePoint(i){
+  if (i < 0 || i >= planPoints.length) return;
+  planPoints.splice(i, 1);
+  const m = planMarkers.splice(i, 1)[0];
+  if (m) planMap.removeLayer(m);
   redrawPlan();
 }
+function removeLast(){ deletePoint(planPoints.length - 1); }
 function clearPlan(){
   planPoints = [];
   planMarkers.forEach(m => planMap.removeLayer(m));
