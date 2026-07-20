@@ -248,6 +248,7 @@
         </div>
         <p class="hint" id="st-progress" hidden></p>
         <div class="output" hidden id="st-output-wrap">
+          <div id="st-profil"></div>
           <span class="form-field wide"><label for="st-output">Oppføring for turer.json</label><textarea id="st-output" readonly></textarea></span>
           <p class="hint" id="st-gpx-hint"></p>
           <div class="form-row" id="st-downloads"></div>
@@ -310,6 +311,7 @@ function haversine(a, b){
 }
 function totalDistance(pts){ let d=0; for (let i=1;i<pts.length;i++) d += haversine(pts[i-1], pts[i]); return d; }
 function elevationGain(eles){ let g=0; for (let i=1;i<eles.length;i++){ if (eles[i]!=null && eles[i-1]!=null){ const dz = eles[i]-eles[i-1]; if (dz>0) g += dz; } } return g; }
+function elevationLoss(eles){ let l=0; for (let i=1;i<eles.length;i++){ if (eles[i]!=null && eles[i-1]!=null){ const dz = eles[i]-eles[i-1]; if (dz<0) l -= dz; } } return l; }
 function fmtKm(m){ return (m/1000).toFixed(1).replace(".", ",") + " km"; }
 function fmtM(m){ return Math.round(m) + " m"; }
 
@@ -417,7 +419,7 @@ function byggProfil(latlngs, eles){
   const area = "M" + px(xs[0]).toFixed(1) + " " + (H - padB) + " " +
     xs.map((x,i) => "L" + px(x).toFixed(1) + " " + py(ys[i]).toFixed(1)).join(" ") +
     " L" + px(xmax).toFixed(1) + " " + (H - padB) + " Z";
-  const gain = elevationGain(eles);
+  const gain = elevationGain(eles), loss = elevationLoss(eles);
   return '<div class="profile">' +
     '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="Høydeprofil">' +
       '<path d="' + area + '" fill="rgba(47,125,114,.13)" />' +
@@ -427,7 +429,7 @@ function byggProfil(latlngs, eles){
       '<text x="' + padL + '" y="' + (H-6) + '" class="pf-lab">0 km</text>' +
       '<text x="' + (W-padR) + '" y="' + (H-6) + '" text-anchor="end" class="pf-lab">' + fmtKm(xmax*1000) + '</text>' +
     '</svg>' +
-    '<span class="pf-cap">Høydeprofil · +' + Math.round(gain) + ' m stigning · kilde: Kartverket</span>' +
+    '<span class="pf-cap">Høydeprofil · ↑' + Math.round(gain) + ' m / ↓' + Math.round(loss) + ' m · kilde: Kartverket</span>' +
   '</div>';
 }
 
@@ -730,9 +732,11 @@ function renderExpedition(exp, i){
           alle.push(...g.latlngs);
           const dist = totalDistance(g.latlngs); totDist += dist;
           const gain = elevationGain(g.eles); if (gain){ totGain += gain; haveGain = true; }
+          const loss = elevationLoss(g.eles);
           const slot = d.querySelector('.etappe-route[data-ei="' + ei + '"]');
           if (slot)
-            slot.innerHTML = '<p class="etappe-stat">' + fmtKm(dist) + (gain ? ' · +' + fmtM(gain) : '') + '</p>' + byggProfil(g.latlngs, g.eles);
+            slot.innerHTML = '<p class="etappe-stat">' + fmtKm(dist) +
+              (gain || loss ? ' · ↑' + fmtM(gain) + ' / ↓' + fmtM(loss) : '') + '</p>' + byggProfil(g.latlngs, g.eles);
         } catch(err){ console.warn("Etappe-GPX:", err.message); }
       }
       fitTo(alle);
@@ -1006,8 +1010,10 @@ document.getElementById("st-gen").addEventListener("click", async () => {
   const gen = document.getElementById("st-gen");
   const prog = document.getElementById("st-progress");
   const dl = document.getElementById("st-downloads");
+  const profilBoks = document.getElementById("st-profil");
   dl.innerHTML = "";
-  let advarsel = "";
+  profilBoks.innerHTML = "";
+  let advarsel = "", profilHtml = "";
 
   if (jobs.length){
     gen.disabled = true;
@@ -1028,9 +1034,13 @@ document.getElementById("st-gen").addEventListener("click", async () => {
       const gain = eles ? elevationGain(eles) : 0;
       if (job.tur && !manuellStigning && gain) obj.stigning_m = Math.round(gain);
       addDownloadButton(job.filename, buildGPX(job.latlngs, job.navn, eles));
+      // Forhåndsvis høydeprofilen (både tur og etapper).
+      const prof = eles ? byggProfil(job.latlngs, eles) : "";
+      if (prof) profilHtml += '<p class="blocklabel" style="margin-top:.8rem">' + esc(job.navn) + '</p>' + prof;
     }
     prog.hidden = true;
     gen.disabled = false;
+    profilBoks.innerHTML = profilHtml;
     if (traffTotalt === 0) advarsel = " Fikk ingen høyde fra Kartverket (sjekk nett/tilgang) – filene er lagret uten høyde, og du kan fylle inn stigning manuelt.";
   }
 
