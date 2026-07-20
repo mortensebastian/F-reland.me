@@ -314,6 +314,13 @@ function elevationGain(eles){ let g=0; for (let i=1;i<eles.length;i++){ if (eles
 function elevationLoss(eles){ let l=0; for (let i=1;i<eles.length;i++){ if (eles[i]!=null && eles[i-1]!=null){ const dz = eles[i]-eles[i-1]; if (dz<0) l -= dz; } } return l; }
 function fmtKm(m){ return (m/1000).toFixed(1).replace(".", ",") + " km"; }
 function fmtM(m){ return Math.round(m) + " m"; }
+// Kompakt «↑X / ↓Y m» til høydemeter-visning (utelater det som mangler).
+function stigningFallStr(gain, loss){
+  const up = gain != null ? "↑" + Math.round(gain) : "";
+  const dn = loss != null ? "↓" + Math.round(loss) : "";
+  const s = [up, dn].filter(Boolean).join(" / ");
+  return s ? s + " m" : "";
+}
 
 // Bygg GPX. Har vi høyder (eles), skrives de inn som <ele> per punkt slik at
 // den lagrede fila bærer høydeprofilen – da slipper de publiserte sidene å
@@ -595,7 +602,9 @@ function normalizeManifest(t){
     gpxUrl: t.gpx || null,
     stats: {
       dist: t.distanse_km != null ? String(t.distanse_km).replace(".", ",") + " km" : null,
-      ele: t.stigning_m != null ? "+" + t.stigning_m + " m" : null,
+      ele: (t.stigning_m != null || t.fall_m != null)
+        ? stigningFallStr(t.stigning_m != null ? t.stigning_m : null, t.fall_m != null ? t.fall_m : null)
+        : null,
       days: t.dager != null ? String(t.dager) : null,
     },
     notater: t.notater || null,
@@ -721,7 +730,7 @@ function renderExpedition(exp, i){
     if (hasEtappeRoutes){
       drawn = true;
       const alle = [];
-      let totDist = 0, totGain = 0, haveGain = false;
+      let totDist = 0, totGain = 0, totLoss = 0, haveEle = false;
       for (let k = 0; k < etappeRoutes.length; k++){
         const { ei, gpx } = etappeRoutes[k];
         try {
@@ -731,17 +740,17 @@ function renderExpedition(exp, i){
           drawOne(g.latlngs, etappeFarger[ei % etappeFarger.length], { start: k === 0, end: k === etappeRoutes.length-1 });
           alle.push(...g.latlngs);
           const dist = totalDistance(g.latlngs); totDist += dist;
-          const gain = elevationGain(g.eles); if (gain){ totGain += gain; haveGain = true; }
-          const loss = elevationLoss(g.eles);
+          const gain = elevationGain(g.eles), loss = elevationLoss(g.eles);
+          if (gain || loss){ totGain += gain; totLoss += loss; haveEle = true; }
           const slot = d.querySelector('.etappe-route[data-ei="' + ei + '"]');
           if (slot)
             slot.innerHTML = '<p class="etappe-stat">' + fmtKm(dist) +
-              (gain || loss ? ' · ↑' + fmtM(gain) + ' / ↓' + fmtM(loss) : '') + '</p>' + byggProfil(g.latlngs, g.eles);
+              (gain || loss ? ' · ' + stigningFallStr(gain, loss) : '') + '</p>' + byggProfil(g.latlngs, g.eles);
         } catch(err){ console.warn("Etappe-GPX:", err.message); }
       }
       fitTo(alle);
       if (!(exp.stats && exp.stats.dist) && totDist) setStat(".s-dist", fmtKm(totDist));
-      if (!(exp.stats && exp.stats.ele) && haveGain) setStat(".s-ele", "+" + fmtM(totGain));
+      if (!(exp.stats && exp.stats.ele) && haveEle) setStat(".s-ele", stigningFallStr(totGain, totLoss));
       return;
     }
 
@@ -754,8 +763,8 @@ function renderExpedition(exp, i){
         drawOne(g.latlngs, etappeFarger[0], { start:true, end:true });
         fitTo(g.latlngs);
         if (!(exp.stats && exp.stats.dist)) setStat(".s-dist", fmtKm(totalDistance(g.latlngs)));
-        const gain = elevationGain(g.eles);
-        if (!(exp.stats && exp.stats.ele) && gain) setStat(".s-ele", "+" + fmtM(gain));
+        const gain = elevationGain(g.eles), loss = elevationLoss(g.eles);
+        if (!(exp.stats && exp.stats.ele) && (gain || loss)) setStat(".s-ele", stigningFallStr(gain, loss));
         const prof = d.querySelector(".tur-profil"); if (prof) prof.innerHTML = byggProfil(g.latlngs, g.eles);
       } catch(err){ drawn = false; console.warn(err.message); }
       return;
@@ -777,8 +786,8 @@ function renderExpedition(exp, i){
         drawOne(g.latlngs, etappeFarger[0], { start:true, end:true });
         fitTo(g.latlngs);
         setStat(".s-dist", fmtKm(totalDistance(g.latlngs)));
-        const gain = elevationGain(g.eles);
-        setStat(".s-ele", gain ? "+" + fmtM(gain) : "–");
+        const gain = elevationGain(g.eles), loss = elevationLoss(g.eles);
+        setStat(".s-ele", (gain || loss) ? stigningFallStr(gain, loss) : "–");
         setStat(".s-pts", g.latlngs.length);
         const prof = d.querySelector(".tur-profil"); if (prof) prof.innerHTML = byggProfil(g.latlngs, g.eles);
       } catch (err) { alert(err.message); }
@@ -1032,7 +1041,11 @@ document.getElementById("st-gen").addEventListener("click", async () => {
       } catch(e){ /* beholder ev. høyder fra opplastet GPX */ }
 
       const gain = eles ? elevationGain(eles) : 0;
-      if (job.tur && !manuellStigning && gain) obj.stigning_m = Math.round(gain);
+      const loss = eles ? elevationLoss(eles) : 0;
+      if (job.tur){
+        if (!manuellStigning && gain) obj.stigning_m = Math.round(gain);
+        if (loss) obj.fall_m = Math.round(loss);
+      }
       addDownloadButton(job.filename, buildGPX(job.latlngs, job.navn, eles));
       // Forhåndsvis høydeprofilen (både tur og etapper).
       const prof = eles ? byggProfil(job.latlngs, eles) : "";
@@ -1048,7 +1061,7 @@ document.getElementById("st-gen").addEventListener("click", async () => {
   if (notater) obj.notater = notater;
   // Rekkefølge på nøklene: sett stigning/notater/etapper/pakkeliste til slutt.
   const ordered = {};
-  ["id","navn","status","type","dato","dager","beskrivelse","gpx","distanse_km","stigning_m","notater","etapper","pakkeliste"]
+  ["id","navn","status","type","dato","dager","beskrivelse","gpx","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
     .forEach(k => { if (obj[k] !== undefined) ordered[k] = obj[k]; });
 
   document.getElementById("st-output").value = JSON.stringify(ordered, null, 2);
