@@ -16,6 +16,20 @@ Alt du legger inn her blir synlig for alle som besøker siden.
 Har du ikke en rute ennå? Dropp `gpx`-feltet, så vises turen uten kart (fint for
 en tur du fortsatt planlegger).
 
+## Redigere en tur
+
+Hver tur fra `turer.json` har en **«Rediger denne turen»**-knapp nederst på kortet.
+Den åpner planleggeren med alt ferdig utfylt – felter, notater, etapper, pakkeliste
+og ruta i kartet. Endre det du vil og trykk **«Lag JSON»** på nytt:
+
+- Behold **samme `id`** (og dermed samme GPX-filnavn), så erstatter du turen i stedet
+  for å lage en ny. Lim den nye oppføringen over den gamle i `turer.json`, og last
+  ned GPX-en(e) på nytt slik at fila i `turer/` overskrives. Commit.
+- Regenerering **henter høyden på nytt fra Kartverket**, så `stigning_m`/`fall_m` og
+  høydeprofilen oppdateres om du har endret ruta. Vil du beholde en manuell
+  stigningsverdi, står den i «Stigning (m)»-feltet; tøm det for å la Kartverket regne.
+- **«Tøm skjema»** nullstiller alt om du heller vil begynne på en ny tur.
+
 ## Skjema
 
 | Felt | Påkrevd | Forklaring |
