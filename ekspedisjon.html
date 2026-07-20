@@ -114,6 +114,7 @@
   .subblock .rm:hover{color:var(--warm);}
   .output{margin-top:1.2rem;}
   .output textarea{width:100%;min-height:9rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:.6rem;resize:vertical;white-space:pre;}
+  .editing-note{color:var(--warm);font-weight:600;}
 
   /* ---------- Knapper / input ---------- */
   .btn{display:inline-flex;align-items:center;gap:.4rem;font-family:"Hanken Grotesk",sans-serif;font-size:.86rem;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .85rem;cursor:pointer;transition:border-color .2s,color .2s,background .2s;}
@@ -213,6 +214,7 @@
       <summary>Lagre som tur</summary>
       <div class="save-body">
         <p class="hint">Fyll ut det du vil, og trykk «Lag JSON». Kopier oppføringen inn i <code>turer.json</code>, last ned GPX-fila og legg den i <code>turer/</code>, og commit. Se <a href="/turer/LES-MEG.md">turer/LES-MEG.md</a>.</p>
+        <p class="hint editing-note" id="st-editing" hidden></p>
 
         <div class="form-row">
           <span class="form-field"><label for="st-navn">Navn</label><input id="st-navn" type="text" placeholder="Tur over vidda" /></span>
@@ -245,6 +247,7 @@
         <div class="form-row" style="margin-top:1.3rem;">
           <button class="btn" id="st-gen" type="button">Lag JSON</button>
           <button class="btn" id="st-copy" type="button" hidden>Kopier JSON</button>
+          <button class="btn" id="st-reset" type="button">Tøm skjema</button>
         </div>
         <p class="hint" id="st-progress" hidden></p>
         <div class="output" hidden id="st-output-wrap">
@@ -610,6 +613,8 @@ function normalizeManifest(t){
     notater: t.notater || null,
     etapper: t.etapper || null,
     pakkeliste: t.pakkeliste || null,
+    editable: true,   // datadrevne turer kan redigeres i planleggeren
+    raw: t,           // hele den originale oppføringen, til redigering
   };
 }
 
@@ -673,8 +678,18 @@ function renderExpedition(exp, i){
       (hasRoute && !hasEtappeRoutes ? '<div class="tur-profil"></div>' : '') +
       stats +
       renderPakke(exp.pakkeliste, exp.id || ("tur-" + i)) +
+      (exp.editable
+        ? '<div class="detail-tools" style="margin-top:1.3rem">' +
+            '<button class="btn btn-edit" type="button">✎ Rediger denne turen</button>' +
+            '<span class="hint" style="margin:0">Åpner planleggeren med turen ferdig utfylt.</span>' +
+          '</div>'
+        : '') +
     '</div>';
   doneGrid.appendChild(d);
+
+  // Rediger: åpne planleggeren med turen ferdig utfylt.
+  const editBtn = d.querySelector(".btn-edit");
+  if (editBtn) editBtn.addEventListener("click", () => redigerTur(exp.raw));
 
   // Husk avkryssing i pakkelista lokalt.
   d.querySelectorAll('.pakke-liste input[type=checkbox]').forEach(cb => {
@@ -907,7 +922,21 @@ document.getElementById("st-navn").addEventListener("input", e => {
   if (!stIdTouched) document.getElementById("st-id").value = slugify(e.target.value);
 });
 
-function addEtappeBlock(){
+// Les inn en etappe-rute fra en URL (brukes ved redigering) og legg den i minnet.
+async function lastEtappeRute(b, url){
+  const info = b.querySelector(".e-gpx-info");
+  info.textContent = "Laster rute …";
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("Fant ikke " + url);
+    const g = parseGPX(await r.text());
+    b.__rute = { latlngs: g.latlngs, eles: g.eles };
+    info.textContent = "Rute lastet: " + g.latlngs.length + " punkter · " + fmtKm(totalDistance(g.latlngs));
+  } catch(err){ b.__rute = null; info.textContent = err.message; }
+}
+
+// data (valgfri) forhåndsutfyller etappen ved redigering: {navn, notat, sporsmal, gpx}.
+function addEtappeBlock(data){
   const b = document.createElement("div");
   b.className = "subblock etappe-block";
   b.innerHTML =
@@ -933,8 +962,16 @@ function addEtappeBlock(){
     reader.readAsText(file);
   });
   document.getElementById("st-etapper").appendChild(b);
+  if (data){
+    if (data.navn) b.querySelector(".e-navn").value = data.navn;
+    if (data.notat) b.querySelector(".e-notat").value = data.notat;
+    if (data.sporsmal && data.sporsmal.length) b.querySelector(".e-sporsmal").value = data.sporsmal.join("\n");
+    if (data.gpx) lastEtappeRute(b, data.gpx);
+  }
+  return b;
 }
-function addPakkeBlock(){
+// data (valgfri) forhåndsutfyller gruppa ved redigering: {gruppe, ting}.
+function addPakkeBlock(data){
   const b = document.createElement("div");
   b.className = "subblock pakke-block";
   b.innerHTML =
@@ -943,6 +980,11 @@ function addPakkeBlock(){
     '<div class="form-row"><span class="form-field wide"><label>Ting (én per linje)</label><textarea class="p-ting" placeholder="Ullundertøy&#10;Regnjakke&#10;Ekstra sokker"></textarea></span></div>';
   b.querySelector(".rm").addEventListener("click", () => b.remove());
   document.getElementById("st-pakke").appendChild(b);
+  if (data){
+    if (data.gruppe) b.querySelector(".p-gruppe").value = data.gruppe;
+    if (data.ting && data.ting.length) b.querySelector(".p-ting").value = data.ting.join("\n");
+  }
+  return b;
 }
 document.getElementById("st-add-etappe").addEventListener("click", addEtappeBlock);
 document.getElementById("st-add-gruppe").addEventListener("click", addPakkeBlock);
@@ -1081,6 +1123,76 @@ document.getElementById("st-copy").addEventListener("click", () => {
   const btn = document.getElementById("st-copy"), t = btn.textContent;
   btn.textContent = "Kopiert!"; setTimeout(() => { btn.textContent = t; }, 1200);
 });
+
+/* ---------------------------------------------------------------------------
+   Rediger / tøm skjema
+--------------------------------------------------------------------------- */
+// Tøm hele «Lagre som tur»-skjemaet og ruta, og start på nytt.
+function nullstillSkjema(){
+  ["st-navn","st-id","st-type","st-dato","st-dager","st-stigning","st-beskrivelse","st-notater"]
+    .forEach(id => { document.getElementById(id).value = ""; });
+  document.getElementById("st-status").value = "planlagt";
+  stIdTouched = false;
+  document.getElementById("st-etapper").innerHTML = "";
+  document.getElementById("st-pakke").innerHTML = "";
+  addEtappeBlock();
+  addPakkeBlock();
+  clearPlan();
+  document.getElementById("st-output-wrap").hidden = true;
+  document.getElementById("st-copy").hidden = true;
+  document.getElementById("st-editing").hidden = true;
+  document.getElementById("st-progress").hidden = true;
+}
+document.getElementById("st-reset").addEventListener("click", nullstillSkjema);
+
+// Åpne planleggeren med en eksisterende tur ferdig utfylt, klar til redigering.
+// Regenererer du, hentes høyden på nytt fra Kartverket – lim resultatet tilbake
+// i turer.json og last ned GPX-ene på nytt (samme filnavn overskriver).
+async function redigerTur(t){
+  selectTab("plan");
+  const saveBox = document.querySelector(".save-tur");
+  if (saveBox) saveBox.open = true;
+
+  // Metadata
+  document.getElementById("st-navn").value = t.navn || "";
+  stIdTouched = true;                              // ikke overskriv id fra navn
+  document.getElementById("st-id").value = t.id || "";
+  document.getElementById("st-status").value = t.status || "planlagt";
+  document.getElementById("st-type").value = t.type || "";
+  document.getElementById("st-dato").value = t.dato || "";
+  document.getElementById("st-dager").value = t.dager != null ? t.dager : "";
+  document.getElementById("st-stigning").value = t.stigning_m != null ? t.stigning_m : "";
+  document.getElementById("st-beskrivelse").value = t.beskrivelse || "";
+  document.getElementById("st-notater").value = t.notater || "";
+
+  // Etapper og pakkeliste – bygg på nytt fra turen.
+  document.getElementById("st-etapper").innerHTML = "";
+  if (t.etapper && t.etapper.length) t.etapper.forEach(e => addEtappeBlock(e));
+  else addEtappeBlock();
+  document.getElementById("st-pakke").innerHTML = "";
+  if (t.pakkeliste && t.pakkeliste.length) t.pakkeliste.forEach(g => addPakkeBlock(g));
+  else addPakkeBlock();
+
+  // Last inn hovedruta i kartet slik at den kan justeres.
+  clearPlan();
+  if (t.gpx){
+    try {
+      const r = await fetch(t.gpx);
+      if (r.ok){
+        const g = parseGPX(await r.text());
+        g.latlngs.forEach(p => addPoint(p[0], p[1]));
+        setTimeout(() => { const ll = planLine.getLatLngs(); if (ll.length) planMap.fitBounds(planLine.getBounds(), { padding:[20,20] }); }, 80);
+      }
+    } catch(err){ console.warn("Kunne ikke laste rute:", err.message); }
+  }
+
+  const note = document.getElementById("st-editing");
+  note.textContent = "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lag JSON» – behold samme id og filnavn så oppføringen erstatter den gamle. «Tøm skjema» starter på nytt.";
+  note.hidden = false;
+  document.getElementById("st-output-wrap").hidden = true;
+  document.getElementById("st-copy").hidden = true;
+  if (saveBox) saveBox.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 /* ---------------------------------------------------------------------------
    Fanebytte
