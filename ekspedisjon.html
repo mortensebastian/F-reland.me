@@ -74,6 +74,16 @@
   .sporsmal{list-style:none;display:flex;flex-direction:column;gap:.3rem;}
   .sporsmal li{position:relative;font-size:.9rem;padding-left:1.4rem;color:var(--ink);}
   .sporsmal li::before{content:"?";position:absolute;left:0;top:-.05rem;width:1.05rem;height:1.05rem;line-height:1.05rem;text-align:center;font-family:"Fraunces",serif;font-size:.78rem;color:var(--warm);border:1px solid var(--warm);border-radius:50%;}
+  .etappe-stat{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;margin:.15rem 0 .5rem;}
+  .etappe-farge{display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:.4rem;vertical-align:middle;}
+
+  /* ---------- Høydeprofil ---------- */
+  .profile{margin-top:1rem;}
+  .profile svg{width:100%;height:130px;display:block;border:1px solid var(--line);border-radius:10px;background:var(--paper);}
+  .profile .pf-lab{font-family:"Hanken Grotesk",sans-serif;font-size:11px;fill:var(--muted);}
+  .pf-cap{display:block;font-size:.76rem;color:var(--muted);margin-top:.35rem;}
+  .etappe .profile{margin-top:.6rem;}
+  .etappe .profile svg{height:96px;}
 
   .pakke-gruppe{margin-bottom:.9rem;}
   .pakke-gruppe:last-child{margin-bottom:0;}
@@ -235,11 +245,12 @@
         <div class="form-row" style="margin-top:1.3rem;">
           <button class="btn" id="st-gen" type="button">Lag JSON</button>
           <button class="btn" id="st-copy" type="button" hidden>Kopier JSON</button>
-          <button class="btn" id="st-dl-gpx" type="button" hidden>Last ned GPX</button>
         </div>
+        <p class="hint" id="st-progress" hidden></p>
         <div class="output" hidden id="st-output-wrap">
           <span class="form-field wide"><label for="st-output">Oppføring for turer.json</label><textarea id="st-output" readonly></textarea></span>
           <p class="hint" id="st-gpx-hint"></p>
+          <div class="form-row" id="st-downloads"></div>
         </div>
       </div>
     </details>
@@ -302,11 +313,17 @@ function elevationGain(eles){ let g=0; for (let i=1;i<eles.length;i++){ if (eles
 function fmtKm(m){ return (m/1000).toFixed(1).replace(".", ",") + " km"; }
 function fmtM(m){ return Math.round(m) + " m"; }
 
-function buildGPX(latlngs, name){
+// Bygg GPX. Har vi høyder (eles), skrives de inn som <ele> per punkt slik at
+// den lagrede fila bærer høydeprofilen – da slipper de publiserte sidene å
+// spørre Kartverket på nytt for hver besøkende.
+function buildGPX(latlngs, name, eles){
   const head = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<gpx version="1.1" creator="foreland.me" xmlns="http://www.topografix.com/GPX/1/1">\n' +
     '  <rte>\n    <name>' + (name || "Planlagt rute") + '</name>\n';
-  const body = latlngs.map(p => '    <rtept lat="' + p[0] + '" lon="' + p[1] + '"></rtept>').join("\n");
+  const body = latlngs.map((p, i) => {
+    const e = eles && typeof eles[i] === "number" ? '<ele>' + Math.round(eles[i]*10)/10 + '</ele>' : '';
+    return '    <rtept lat="' + p[0] + '" lon="' + p[1] + '">' + e + '</rtept>';
+  }).join("\n");
   return head + body + "\n  </rte>\n</gpx>\n";
 }
 function download(filename, text){
@@ -317,6 +334,105 @@ function download(filename, text){
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
+
+/* ---------------------------------------------------------------------------
+   Høyde fra Kartverket + høydeprofil
+--------------------------------------------------------------------------- */
+// Fyll inn manglende høyder (null) ved lineær interpolasjon mellom kjente,
+// og forleng flatt ut mot endene. Gjør profilen jevn selv om vi bare henter
+// et utvalg av punktene fra Kartverket.
+function fillNulls(arr){
+  const n = arr.length;
+  let firstKnown = -1;
+  for (let i = 0; i < n; i++){
+    if (typeof arr[i] === "number"){
+      if (firstKnown === -1){ for (let k = 0; k < i; k++) arr[k] = arr[i]; }
+      else {
+        const span = i - firstKnown;
+        for (let k = firstKnown + 1; k < i; k++)
+          arr[k] = arr[firstKnown] + (arr[i] - arr[firstKnown]) * (k - firstKnown) / span;
+      }
+      firstKnown = i;
+    }
+  }
+  if (firstKnown === -1) return arr;                 // ingen kjente
+  for (let k = firstKnown + 1; k < n; k++) arr[k] = arr[firstKnown];
+  return arr;
+}
+
+// Hent høyder fra Kartverkets gratis høyde-API (samme kilde som kartet).
+// Kaller punkt-endepunktet med litt parallellitet, og henter kun et utvalg
+// (maks ~250 punkter) for lange ruter – resten interpoleres.
+async function hentHoyder(latlngs, onProgress){
+  const CAP = 250, CONC = 5;
+  const step = Math.max(1, Math.ceil(latlngs.length / CAP));
+  const idxs = [];
+  for (let i = 0; i < latlngs.length; i += step) idxs.push(i);
+  if (idxs[idxs.length - 1] !== latlngs.length - 1) idxs.push(latlngs.length - 1);
+
+  const out = new Array(latlngs.length).fill(null);
+  let cursor = 0, done = 0, feil = 0;
+  async function worker(){
+    while (cursor < idxs.length){
+      const i = idxs[cursor++];
+      const [lat, lon] = latlngs[i];
+      try {
+        const url = "https://ws.geonorge.no/hoydedata/v1/punkt?koordsys=4326&geojson=false" +
+          "&ost=" + encodeURIComponent(lon) + "&nord=" + encodeURIComponent(lat);
+        const r = await fetch(url);
+        if (r.ok){
+          const j = await r.json();
+          // Tåler flere svarformer: {punkter:[{z}]} eller {z}.
+          const z = (j && Array.isArray(j.punkter) && j.punkter[0] && j.punkter[0].z != null)
+            ? j.punkter[0].z : (j && j.z != null ? j.z : null);
+          if (typeof z === "number") out[i] = z;
+        } else { feil++; }
+      } catch(e){ feil++; }
+      done++;
+      if (onProgress) onProgress(done, idxs.length);
+    }
+  }
+  await Promise.all(Array.from({ length: CONC }, worker));
+  const traff = out.filter(v => typeof v === "number").length;
+  fillNulls(out);
+  return { eles: out, traff: traff, forsokt: idxs.length, feil: feil };
+}
+
+// Tegn en enkel høydeprofil som inline-SVG (ingen bibliotek), i sidens stil.
+function byggProfil(latlngs, eles){
+  const xs = [], ys = [];
+  let cum = 0;
+  for (let i = 0; i < latlngs.length; i++){
+    if (i > 0) cum += haversine(latlngs[i-1], latlngs[i]);
+    if (typeof eles[i] === "number"){ xs.push(cum/1000); ys.push(eles[i]); }
+  }
+  if (ys.length < 2) return "";
+  const W = 620, H = 150, padL = 38, padR = 10, padT = 12, padB = 22;
+  const xmax = xs[xs.length-1] || 1;
+  let ymin = Math.min(...ys), ymax = Math.max(...ys);
+  if (ymax - ymin < 10){ ymax += 5; ymin -= 5; }
+  const px = v => padL + (v / xmax) * (W - padL - padR);
+  const py = v => padT + (1 - (v - ymin) / (ymax - ymin)) * (H - padT - padB);
+  const line = xs.map((x,i) => (i ? "L" : "M") + px(x).toFixed(1) + " " + py(ys[i]).toFixed(1)).join(" ");
+  const area = "M" + px(xs[0]).toFixed(1) + " " + (H - padB) + " " +
+    xs.map((x,i) => "L" + px(x).toFixed(1) + " " + py(ys[i]).toFixed(1)).join(" ") +
+    " L" + px(xmax).toFixed(1) + " " + (H - padB) + " Z";
+  const gain = elevationGain(eles);
+  return '<div class="profile">' +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="Høydeprofil">' +
+      '<path d="' + area + '" fill="rgba(47,125,114,.13)" />' +
+      '<path d="' + line + '" fill="none" stroke="#2f7d72" stroke-width="2" vector-effect="non-scaling-stroke" />' +
+      '<text x="' + (padL-4) + '" y="' + (py(ymax)+4) + '" text-anchor="end" class="pf-lab">' + Math.round(ymax) + '</text>' +
+      '<text x="' + (padL-4) + '" y="' + (py(ymin)) + '" text-anchor="end" class="pf-lab">' + Math.round(ymin) + '</text>' +
+      '<text x="' + padL + '" y="' + (H-6) + '" class="pf-lab">0 km</text>' +
+      '<text x="' + (W-padR) + '" y="' + (H-6) + '" text-anchor="end" class="pf-lab">' + fmtKm(xmax*1000) + '</text>' +
+    '</svg>' +
+    '<span class="pf-cap">Høydeprofil · +' + Math.round(gain) + ' m stigning · kilde: Kartverket</span>' +
+  '</div>';
+}
+
+// Fargenyanser til etapperuter i kartet.
+const etappeFarger = ["#2f7d72", "#c0762f", "#3f6f8f", "#7a8b3a", "#9a5b8f", "#4f8f6f"];
 
 /* ---------------------------------------------------------------------------
    FANE 1: Fullførte ekspedisjoner
@@ -429,13 +545,17 @@ function renderNotes(text){
 // Etapper med notat og eventuelle spørsmål for planlegging.
 function renderEtapper(etapper){
   if (!etapper || !etapper.length) return "";
-  const items = etapper.map(e => {
+  const items = etapper.map((e, ei) => {
     const q = (e.sporsmal && e.sporsmal.length)
       ? '<ul class="sporsmal">' + e.sporsmal.map(s => '<li>' + esc(s) + '</li>').join("") + '</ul>'
       : "";
-    return '<div class="etappe">' +
-      (e.navn ? '<h4>' + esc(e.navn) + '</h4>' : "") +
+    const farge = e.gpx ? '<span class="etappe-farge" style="background:' + etappeFarger[ei % etappeFarger.length] + '"></span>' : "";
+    // Tom beholder som fylles med etappens statistikk og høydeprofil ved åpning.
+    const routeSlot = e.gpx ? '<div class="etappe-route" data-ei="' + ei + '"></div>' : "";
+    return '<div class="etappe" data-ei="' + ei + '">' +
+      (e.navn ? '<h4>' + farge + esc(e.navn) + '</h4>' : "") +
       (e.notat ? '<p>' + esc(e.notat) + '</p>' : "") +
+      routeSlot +
       q +
     '</div>';
   }).join("");
@@ -489,11 +609,17 @@ function renderExpedition(exp, i){
   const baked = exp.route;                       // innebygd rute (koordinatliste)
   const gpxUrl = exp.gpxUrl;                      // rute som lastes fra en GPX-fil
   const allowUpload = exp.allowUpload;            // la brukeren laste opp GPX selv
-  const hasRoute = !!(baked || gpxUrl || allowUpload);
+  // Etapper med egen GPX. Finnes de, tegnes de i kartet (én farge hver) og har
+  // sin egen høydeprofil – da er de rutekilden for turen.
+  const etappeRoutes = (exp.etapper || []).map((e, ei) => ({ ei: ei, gpx: e.gpx })).filter(x => x.gpx);
+  const hasEtappeRoutes = etappeRoutes.length > 0;
+  const hasRoute = !!(baked || gpxUrl || allowUpload || hasEtappeRoutes);
 
   let tools = "";
   if (baked)
     tools = '<div class="detail-tools"><span class="hint" style="margin:0">Ruta er hentet fra Garmin og tegnes automatisk under.</span></div>';
+  else if (hasEtappeRoutes)
+    tools = '<div class="detail-tools"><span class="hint" style="margin:0">Etappene tegnes automatisk i kartet under.</span></div>';
   else if (gpxUrl)
     tools = '<div class="detail-tools"><span class="hint" style="margin:0">Ruta tegnes automatisk under.</span></div>';
   else if (allowUpload)
@@ -533,6 +659,7 @@ function renderExpedition(exp, i){
       renderEtapper(exp.etapper) +
       tools +
       (hasRoute ? '<div class="map"></div>' : '') +
+      (hasRoute && !hasEtappeRoutes ? '<div class="tur-profil"></div>' : '') +
       stats +
       renderPakke(exp.pakkeliste, exp.id || ("tur-" + i)) +
     '</div>';
@@ -555,42 +682,82 @@ function renderExpedition(exp, i){
     map = L.map(mapEl, { layers: [layers._default], scrollWheelZoom: false }).setView([61, 8.5], 5);
     L.control.layers({ "Kartverket topo": layers["Kartverket topo"], "OpenTopoMap": layers["OpenTopoMap"], "OpenStreetMap": layers["OpenStreetMap"] }).addTo(map);
   }
+  function ensureTrack(){ if (!track) track = L.featureGroup().addTo(map); return track; }
 
-  // Tegn en ferdig rute (start-/overnattings-/sluttmarkør) i kartet.
-  function drawRoute(latlngs, overnight, overnightLabel){
-    if (track) map.removeLayer(track);
-    track = L.featureGroup().addTo(map);
-    L.polyline(latlngs, { color: "#2f7d72", weight: 4 }).addTo(track);
-    L.circleMarker(latlngs[0], { radius: 6, color: "#2f7d72", fillColor:"#2f7d72", fillOpacity:1 })
-      .bindTooltip("Start").addTo(track);
-    if (overnight)
-      L.circleMarker(overnight, { radius: 6, color: "#c0762f", fillColor:"#faf6ee", fillOpacity:1, weight: 3 })
-        .bindTooltip(overnightLabel || "Overnatting").addTo(track);
-    L.circleMarker(latlngs[latlngs.length-1], { radius: 6, color: "#c0762f", fillColor:"#c0762f", fillOpacity:1 })
-      .bindTooltip("Mål").addTo(track);
-    setTimeout(() => { map.invalidateSize(); map.fitBounds(track.getBounds(), { padding: [20,20] }); }, 60);
+  // Tegn én rute i kartet, med valgfrie start-/overnattings-/sluttmarkører.
+  // Flere ruter (etapper) kan legges oppå hverandre i samme featureGroup.
+  function drawOne(latlngs, color, opts){
+    opts = opts || {};
+    const t = ensureTrack();
+    L.polyline(latlngs, { color: color || "#2f7d72", weight: 4 }).addTo(t);
+    if (opts.start)
+      L.circleMarker(latlngs[0], { radius: 6, color:"#2f7d72", fillColor:"#2f7d72", fillOpacity:1 }).bindTooltip("Start").addTo(t);
+    if (opts.overnight)
+      L.circleMarker(opts.overnight, { radius: 6, color:"#c0762f", fillColor:"#faf6ee", fillOpacity:1, weight:3 }).bindTooltip(opts.overnightLabel || "Overnatting").addTo(t);
+    if (opts.end)
+      L.circleMarker(latlngs[latlngs.length-1], { radius: 6, color:"#c0762f", fillColor:"#c0762f", fillOpacity:1 }).bindTooltip("Mål").addTo(t);
   }
+  function fitTo(latlngs){
+    setTimeout(() => { map.invalidateSize(); if (latlngs && latlngs.length) map.fitBounds(L.latLngBounds(latlngs), { padding:[20,20] }); }, 60);
+  }
+  function setStat(sel, value){ const el = d.querySelector(sel); if (el) el.textContent = value; }
 
   // Rett opp størrelsen når kortet åpnes (Leaflet må vite at containeren er synlig).
   let drawn = false;
-  d.addEventListener("toggle", () => {
+  d.addEventListener("toggle", async () => {
     if (!d.open || !hasRoute) return;
     ensureMap();
-    if (baked && !drawn){ drawRoute(baked.line, baked.overnight, baked.overnightLabel); drawn = true; }
-    else if (gpxUrl && !drawn){
+    if (drawn){ setTimeout(() => map.invalidateSize(), 60); return; }
+
+    if (baked){
       drawn = true;
-      fetch(gpxUrl)
-        .then(r => { if (!r.ok) throw new Error("Fant ikke GPX-fila."); return r.text(); })
-        .then(text => {
-          const gpx = parseGPX(text);
-          drawRoute(gpx.latlngs);
-          if (!(exp.stats && exp.stats.dist)) d.querySelector(".s-dist").textContent = fmtKm(totalDistance(gpx.latlngs));
-          const gain = elevationGain(gpx.eles);
-          if (!(exp.stats && exp.stats.ele) && gain) d.querySelector(".s-ele").textContent = "+" + fmtM(gain);
-        })
-        .catch(err => { drawn = false; console.warn(err.message); });
+      drawOne(baked.line, etappeFarger[0], { start:true, end:true, overnight:baked.overnight, overnightLabel:baked.overnightLabel });
+      fitTo(baked.line);
+      return;
     }
-    else setTimeout(() => map.invalidateSize(), 60);
+
+    if (hasEtappeRoutes){
+      drawn = true;
+      const alle = [];
+      let totDist = 0, totGain = 0, haveGain = false;
+      for (let k = 0; k < etappeRoutes.length; k++){
+        const { ei, gpx } = etappeRoutes[k];
+        try {
+          const r = await fetch(gpx);
+          if (!r.ok) throw new Error("Fant ikke " + gpx);
+          const g = parseGPX(await r.text());
+          drawOne(g.latlngs, etappeFarger[ei % etappeFarger.length], { start: k === 0, end: k === etappeRoutes.length-1 });
+          alle.push(...g.latlngs);
+          const dist = totalDistance(g.latlngs); totDist += dist;
+          const gain = elevationGain(g.eles); if (gain){ totGain += gain; haveGain = true; }
+          const slot = d.querySelector('.etappe-route[data-ei="' + ei + '"]');
+          if (slot)
+            slot.innerHTML = '<p class="etappe-stat">' + fmtKm(dist) + (gain ? ' · +' + fmtM(gain) : '') + '</p>' + byggProfil(g.latlngs, g.eles);
+        } catch(err){ console.warn("Etappe-GPX:", err.message); }
+      }
+      fitTo(alle);
+      if (!(exp.stats && exp.stats.dist) && totDist) setStat(".s-dist", fmtKm(totDist));
+      if (!(exp.stats && exp.stats.ele) && haveGain) setStat(".s-ele", "+" + fmtM(totGain));
+      return;
+    }
+
+    if (gpxUrl){
+      drawn = true;
+      try {
+        const r = await fetch(gpxUrl);
+        if (!r.ok) throw new Error("Fant ikke GPX-fila.");
+        const g = parseGPX(await r.text());
+        drawOne(g.latlngs, etappeFarger[0], { start:true, end:true });
+        fitTo(g.latlngs);
+        if (!(exp.stats && exp.stats.dist)) setStat(".s-dist", fmtKm(totalDistance(g.latlngs)));
+        const gain = elevationGain(g.eles);
+        if (!(exp.stats && exp.stats.ele) && gain) setStat(".s-ele", "+" + fmtM(gain));
+        const prof = d.querySelector(".tur-profil"); if (prof) prof.innerHTML = byggProfil(g.latlngs, g.eles);
+      } catch(err){ drawn = false; console.warn(err.message); }
+      return;
+    }
+
+    setTimeout(() => map.invalidateSize(), 60);   // allowUpload: venter på fil
   });
 
   const fileInput = d.querySelector('input[type=file]');
@@ -600,13 +767,16 @@ function renderExpedition(exp, i){
     const reader = new FileReader();
     reader.onload = ev => {
       try {
-        const gpx = parseGPX(ev.target.result);
+        const g = parseGPX(ev.target.result);
         ensureMap();
-        drawRoute(gpx.latlngs);
-        d.querySelector(".s-dist").textContent = fmtKm(totalDistance(gpx.latlngs));
-        const gain = elevationGain(gpx.eles);
-        d.querySelector(".s-ele").textContent = gain ? "+" + fmtM(gain) : "–";
-        d.querySelector(".s-pts").textContent = gpx.latlngs.length;
+        if (track){ map.removeLayer(track); track = null; }
+        drawOne(g.latlngs, etappeFarger[0], { start:true, end:true });
+        fitTo(g.latlngs);
+        setStat(".s-dist", fmtKm(totalDistance(g.latlngs)));
+        const gain = elevationGain(g.eles);
+        setStat(".s-ele", gain ? "+" + fmtM(gain) : "–");
+        setStat(".s-pts", g.latlngs.length);
+        const prof = d.querySelector(".tur-profil"); if (prof) prof.innerHTML = byggProfil(g.latlngs, g.eles);
       } catch (err) { alert(err.message); }
     };
     reader.readAsText(file);
@@ -731,8 +901,24 @@ function addEtappeBlock(){
     '<button class="rm" type="button" title="Fjern etappe" aria-label="Fjern etappe">×</button>' +
     '<div class="form-row"><span class="form-field wide"><label>Etappenavn</label><input class="e-navn" type="text" placeholder="Dag 1 – inn til hytta" /></span></div>' +
     '<div class="form-row"><span class="form-field wide"><label>Notat</label><textarea class="e-notat" placeholder="Rolig start. Fyll vann ved bekken."></textarea></span></div>' +
-    '<div class="form-row"><span class="form-field wide"><label>Spørsmål (ett per linje)</label><textarea class="e-sporsmal" placeholder="Er broa åpen?&#10;Må hytta forhåndsbookes?"></textarea></span></div>';
+    '<div class="form-row"><span class="form-field wide"><label>Spørsmål (ett per linje)</label><textarea class="e-sporsmal" placeholder="Er broa åpen?&#10;Må hytta forhåndsbookes?"></textarea></span></div>' +
+    '<div class="form-row"><span class="form-field wide"><label>Etappe-GPX (valgfri)</label>' +
+      '<label class="btn btn-file" style="align-self:flex-start">Last opp GPX<input class="e-gpx" type="file" accept=".gpx,application/gpx+xml,text/xml" /></label></span></div>' +
+    '<p class="hint e-gpx-info" style="margin-top:.3rem"></p>';
   b.querySelector(".rm").addEventListener("click", () => b.remove());
+  // Les inn etappe-ruta i minnet (ikke sendt noe sted før du trykker «Lag JSON»).
+  b.querySelector(".e-gpx").addEventListener("change", e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const g = parseGPX(ev.target.result);
+        b.__rute = { latlngs: g.latlngs, eles: g.eles };
+        b.querySelector(".e-gpx-info").textContent = "Rute lastet: " + g.latlngs.length + " punkter · " + fmtKm(totalDistance(g.latlngs));
+      } catch(err){ b.__rute = null; b.querySelector(".e-gpx-info").textContent = err.message; }
+    };
+    reader.readAsText(file);
+  });
   document.getElementById("st-etapper").appendChild(b);
 }
 function addPakkeBlock(){
@@ -751,33 +937,51 @@ document.getElementById("st-add-gruppe").addEventListener("click", addPakkeBlock
 addEtappeBlock();
 addPakkeBlock();
 
-document.getElementById("st-gen").addEventListener("click", () => {
+function addDownloadButton(filename, text){
+  const btn = document.createElement("button");
+  btn.className = "btn"; btn.type = "button";
+  btn.textContent = "Last ned " + filename;
+  btn.addEventListener("click", () => download(filename, text));
+  document.getElementById("st-downloads").appendChild(btn);
+}
+
+document.getElementById("st-gen").addEventListener("click", async () => {
   const navn = stVal("st-navn");
   if (!navn){ alert("Gi turen et navn først."); return; }
   const id = stVal("st-id") || slugify(navn);
 
-  const hasRoute = planPoints.length >= 2;
   const obj = { id: id, navn: navn, status: stVal("st-status") };
   const type = stVal("st-type"); if (type) obj.type = type;
   const dato = stVal("st-dato"); if (dato) obj.dato = dato;
   const dager = stVal("st-dager"); if (dager) obj.dager = Number(dager);
   obj.beskrivelse = stVal("st-beskrivelse");
-  if (hasRoute){ obj.gpx = "/turer/" + id + ".gpx"; obj.distanse_km = Math.round(totalDistance(planPoints) / 100) / 10; }
-  const stigning = stVal("st-stigning"); if (stigning) obj.stigning_m = Number(stigning);
-  const notater = document.getElementById("st-notater").value.trim(); if (notater) obj.notater = notater;
 
+  const hasTurRoute = planPoints.length >= 2;
+  if (hasTurRoute){ obj.gpx = "/turer/" + id + ".gpx"; obj.distanse_km = Math.round(totalDistance(planPoints) / 100) / 10; }
+  const manuellStigning = stVal("st-stigning");
+  const notater = document.getElementById("st-notater").value.trim();
+
+  // Etapper – og hvilke som har egen rute.
   const etapper = [];
+  const etappeJobs = [];
+  let j = 0;
   document.querySelectorAll("#st-etapper .etappe-block").forEach(b => {
+    j++;
     const en = b.querySelector(".e-navn").value.trim();
     const et = b.querySelector(".e-notat").value.trim();
     const sp = linesToArr(b.querySelector(".e-sporsmal").value);
-    if (en || et || sp.length){
-      const e = {};
-      if (en) e.navn = en;
-      if (et) e.notat = et;
-      e.sporsmal = sp;
-      etapper.push(e);
+    const rute = b.__rute;
+    if (!(en || et || sp.length || rute)) return;
+    const e = {};
+    if (en) e.navn = en;
+    if (et) e.notat = et;
+    if (rute){
+      const fn = id + "-e" + j + ".gpx";
+      e.gpx = "/turer/" + fn;
+      etappeJobs.push({ filename: fn, navn: en || ("Etappe " + j), latlngs: rute.latlngs, eles: rute.eles });
     }
+    e.sporsmal = sp;
+    etapper.push(e);
   });
   if (etapper.length) obj.etapper = etapper;
 
@@ -794,13 +998,56 @@ document.getElementById("st-gen").addEventListener("click", () => {
   });
   if (pakke.length) obj.pakkeliste = pakke;
 
-  document.getElementById("st-output").value = JSON.stringify(obj, null, 2);
+  // Bygg listen over ruter det skal hentes høyde for (tur + etapper).
+  const jobs = [];
+  if (hasTurRoute) jobs.push({ filename: id + ".gpx", navn: navn, latlngs: planPoints.slice(), eles: null, tur: true });
+  etappeJobs.forEach(x => jobs.push(x));
+
+  const gen = document.getElementById("st-gen");
+  const prog = document.getElementById("st-progress");
+  const dl = document.getElementById("st-downloads");
+  dl.innerHTML = "";
+  let advarsel = "";
+
+  if (jobs.length){
+    gen.disabled = true;
+    prog.hidden = false;
+    let feilTotalt = 0, traffTotalt = 0;
+    for (let ji = 0; ji < jobs.length; ji++){
+      const job = jobs[ji];
+      prog.textContent = "Henter høyde fra Kartverket … rute " + (ji+1) + " av " + jobs.length + " (" + job.navn + ")";
+      let eles = job.eles;
+      try {
+        const res = await hentHoyder(job.latlngs, (done, tot) => {
+          prog.textContent = "Henter høyde fra Kartverket … rute " + (ji+1) + "/" + jobs.length + " · punkt " + done + "/" + tot;
+        });
+        traffTotalt += res.traff; feilTotalt += res.feil;
+        if (res.traff > 0) eles = res.eles;          // Kartverket er kilden når vi får svar
+      } catch(e){ /* beholder ev. høyder fra opplastet GPX */ }
+
+      const gain = eles ? elevationGain(eles) : 0;
+      if (job.tur && !manuellStigning && gain) obj.stigning_m = Math.round(gain);
+      addDownloadButton(job.filename, buildGPX(job.latlngs, job.navn, eles));
+    }
+    prog.hidden = true;
+    gen.disabled = false;
+    if (traffTotalt === 0) advarsel = " Fikk ingen høyde fra Kartverket (sjekk nett/tilgang) – filene er lagret uten høyde, og du kan fylle inn stigning manuelt.";
+  }
+
+  if (manuellStigning) obj.stigning_m = Number(manuellStigning);
+  if (notater) obj.notater = notater;
+  // Rekkefølge på nøklene: sett stigning/notater/etapper/pakkeliste til slutt.
+  const ordered = {};
+  ["id","navn","status","type","dato","dager","beskrivelse","gpx","distanse_km","stigning_m","notater","etapper","pakkeliste"]
+    .forEach(k => { if (obj[k] !== undefined) ordered[k] = obj[k]; });
+
+  document.getElementById("st-output").value = JSON.stringify(ordered, null, 2);
   document.getElementById("st-output-wrap").hidden = false;
   document.getElementById("st-copy").hidden = false;
-  document.getElementById("st-dl-gpx").hidden = !hasRoute;
-  document.getElementById("st-gpx-hint").textContent = hasRoute
-    ? "Lim oppføringen inn i «turer»-lista i turer.json (husk komma mellom oppføringer), og last ned GPX-fila som turer/" + id + ".gpx."
-    : "Ingen rute er tegnet, så turen får ikke kart. Tegn ruta i kartet over først om du vil ha det med.";
+  document.getElementById("st-gpx-hint").textContent =
+    (jobs.length
+      ? "Lim oppføringen inn i «turer»-lista i turer.json (husk komma mellom oppføringer), og legg GPX-filene under i turer/."
+      : "Ingen rute er tegnet eller lastet opp, så turen får ikke kart. Tegn ruta eller legg til etappe-GPX først.") + advarsel;
 });
 
 document.getElementById("st-copy").addEventListener("click", () => {
@@ -810,12 +1057,6 @@ document.getElementById("st-copy").addEventListener("click", () => {
   else document.execCommand("copy");
   const btn = document.getElementById("st-copy"), t = btn.textContent;
   btn.textContent = "Kopiert!"; setTimeout(() => { btn.textContent = t; }, 1200);
-});
-
-document.getElementById("st-dl-gpx").addEventListener("click", () => {
-  if (planPoints.length < 2){ alert("Tegn en rute med minst to punkter først."); return; }
-  const id = stVal("st-id") || slugify(stVal("st-navn")) || "tur";
-  download(id + ".gpx", buildGPX(planPoints, stVal("st-navn") || "Planlagt rute"));
 });
 
 /* ---------------------------------------------------------------------------
