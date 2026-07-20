@@ -31,7 +31,7 @@ en tur du fortsatt planlegger).
 | `distanse_km` | nei | Tall. Vises hvis satt; ellers regnes den ut fra GPX. |
 | `stigning_m` | nei | Tall. Vises hvis satt; ellers regnes den ut fra GPX. |
 | `notater` | nei | Fritekst – tanker underveis, refleksjoner. Linjeskift blir avsnitt. |
-| `etapper` | nei | Liste med etapper, hver med `navn`, `notat` og `sporsmal`. |
+| `etapper` | nei | Liste med etapper, hver med `navn`, `notat`, `sporsmal` og valgfri `gpx`. |
 | `pakkeliste` | nei | Liste med grupper, hver med `gruppe` og `ting` (liste av tekst). |
 
 ### Etappe
@@ -40,12 +40,25 @@ en tur du fortsatt planlegger).
 {
   "navn": "Dag 1 – Inn til hytta",
   "notat": "Rolig start. Fyll vann ved bekken.",
-  "sporsmal": ["Er broa åpen?", "Må hytta forhåndsbookes?"]
+  "sporsmal": ["Er broa åpen?", "Må hytta forhåndsbookes?"],
+  "gpx": "/turer/min-tur-e1.gpx"
 }
 ```
 
 `sporsmal` er spørsmål du vil ha svar på før eller under turen – nyttig når du
 planlegger. La den stå tom (`[]`) om du ikke har noen.
+
+`gpx` er valgfri. Har en etappe egen rute, tegnes hver etappe i kartet med sin
+egen farge, og etappen får sin egen lille høydeprofil. Da er det etappene som er
+rutene for turen (tur-`gpx` trengs ikke i tillegg).
+
+### Høyde og høydeprofil
+
+Høydeprofilen tegnes fra `<ele>`-taggene i GPX-fila. GPX-filer du lager i
+planleggeren får høyde automatisk fra **Kartverkets høyde-API** ved lagring –
+høydene skrives inn i fila, og `stigning_m` fylles ut i JSON-en for deg. Da
+slipper de publiserte sidene å spørre Kartverket på nytt for hver besøkende.
+Legger du inn en GPX uten `<ele>` for hånd, vises ingen profil.
 
 ### Pakkeliste
 

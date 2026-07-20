@@ -42,7 +42,12 @@ Alle sider deler samme uttrykk. Kopier fra en eksisterende side i stedet for å 
 ## Kart / GPX (`ekspedisjon.html`)
 - Kart via **Leaflet** (CDN, ingen API-nøkkel).
 - Gratis kartlag: **Kartverket topo** (standard), **OpenTopoMap**, **OpenStreetMap**.
-- GPX parses klient-side med `DOMParser` – ingen data forlater nettleseren.
+- GPX parses klient-side med `DOMParser`. Unntak: når du lager en tur i
+  planleggeren, hentes høyde fra **Kartverkets høyde-API** (`ws.geonorge.no`,
+  gratis, ingen nøkkel) og skrives inn som `<ele>` i GPX-fila. Publiserte sider
+  leser høyden fra fila og kaller ikke Kartverket per visning.
+- Turer lagres i `turer.json` (+ GPX i `turer/`), som `ekspedisjon.html` henter
+  datadrevet. Se `turer/LES-MEG.md`.
 - Skjulte Leaflet-kart må kalle `map.invalidateSize()` når de blir synlige.
 
 ## Konvensjoner
