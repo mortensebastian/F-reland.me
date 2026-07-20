@@ -29,7 +29,8 @@ en tur du fortsatt planlegger).
 | `beskrivelse` | ja | Kort ingress som vises på kortet. |
 | `gpx` | nei | Sti til GPX-fila, f.eks. `"/turer/min-tur.gpx"`. |
 | `distanse_km` | nei | Tall. Vises hvis satt; ellers regnes den ut fra GPX. |
-| `stigning_m` | nei | Tall. Vises hvis satt; ellers regnes den ut fra GPX. |
+| `stigning_m` | nei | Total oppstigning i meter. Vises hvis satt; ellers regnes den ut fra GPX. |
+| `fall_m` | nei | Total nedstigning i meter. Fylles inn automatisk fra planleggeren; vises som «↓X m». |
 | `notater` | nei | Fritekst – tanker underveis, refleksjoner. Linjeskift blir avsnitt. |
 | `etapper` | nei | Liste med etapper, hver med `navn`, `notat`, `sporsmal` og valgfri `gpx`. |
 | `pakkeliste` | nei | Liste med grupper, hver med `gruppe` og `ting` (liste av tekst). |
@@ -74,8 +75,8 @@ kun lokalt i din egen nettleser, og påvirker ikke det andre ser.
 
 ## Eksempel
 
-Se `eksempel-hardangervidda` i `turer.json` for en komplett oppføring med alle
-feltene. Slett den når du har lagt inn dine egne turer.
+Se `padle-over-hardangervidda` i `turer.json` for en enkel oppføring. Feltene
+`notater`, `etapper` og `pakkeliste` er dokumentert med egne eksempler over.
 
 ## Fase 2 (senere)
 
