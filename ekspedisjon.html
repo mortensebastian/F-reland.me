@@ -15,6 +15,19 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
+<!-- Supabase-klient for innlogging og delte ekspedisjoner. Laster fra CDN,
+     ingen byggesteg. Gjør ingenting før konfig-blokka under er fylt ut. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+  // Fyll inn prosjektets offentlige verdier for å skru på innlogging og deling.
+  // Begge er ment å være offentlige – tilgang styres av databasen (RLS).
+  // Se supabase/LES-MEG.md. Står de tomme, oppfører siden seg som før.
+  window.FORELAND_SUPABASE = {
+    url:     "https://lahtnksohlyliplztsgo.supabase.co",
+    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaHRua3NvaGx5bGlwbHp0c2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDQ3NjUsImV4cCI6MjEwMDE4MDc2NX0.mao-1qcHmd3JEs6NW6QzGRiZCvoFZFVHZr9R6GMXBP8"
+  };
+</script>
+
 <style>
   :root{--paper:#f3ede1;--ink:#20302f;--muted:#6c726a;--line:#d7cdb9;--accent:#2f7d72;--warm:#c0762f;--card:#faf6ee;}
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -144,6 +157,11 @@
   .stat span{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
 
   .hint{font-size:.82rem;color:var(--muted);margin-top:.4rem;}
+  /* Innloggingsfelt (vises kun når Supabase er satt opp) */
+  .authbar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem;margin-bottom:1.6rem;display:flex;flex-direction:column;gap:.6rem;opacity:0;animation:rise .7s ease-out .3s forwards;}
+  .auth-form{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;}
+  .auth-form input{flex:1;min-width:12rem;font-family:"Hanken Grotesk",sans-serif;font-size:.9rem;padding:.5rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);}
+  .auth-in{display:flex;align-items:center;gap:.8rem;justify-content:space-between;flex-wrap:wrap;}
   .coordlist{margin-top:1rem;max-height:150px;overflow:auto;font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;background:var(--paper);}
   .coordlist:empty{display:none;}
   .coordlist div{display:flex;justify-content:space-between;gap:1rem;padding:.15rem 0;}
@@ -176,6 +194,22 @@
   <p class="kicker">Ekspedisjon</p>
   <h1>Ekspedisjon</h1>
   <p class="lede">Turer jeg har gått – og et verktøy for å planlegge de neste. Last opp en GPX-fil, eller tegn ruta selv i kartet.</p>
+
+  <!-- Innlogging: vises kun når Supabase er satt opp (se supabase/LES-MEG.md) -->
+  <div class="authbar" id="authbar" hidden>
+    <div id="auth-out">
+      <p class="hint" style="margin:0 0 .6rem">Logg inn for å lage og dele egne ekspedisjoner – privat eller offentlig.</p>
+      <form class="auth-form" id="auth-form">
+        <input type="email" id="auth-email" placeholder="din@e-post.no" required autocomplete="email" />
+        <button class="btn" type="submit">Send innloggingslenke</button>
+      </form>
+      <p class="hint" id="auth-msg" hidden></p>
+    </div>
+    <div class="auth-in" id="auth-in" hidden>
+      <span class="hint" style="margin:0">Logget inn som <strong id="auth-who"></strong></span>
+      <button class="btn" id="auth-logout" type="button">Logg ut</button>
+    </div>
+  </div>
 
   <!-- Fanevelger -->
   <div class="tabs" role="tablist" aria-label="Velg visning">
@@ -830,6 +864,82 @@ fetch("/turer.json")
     data.turer.forEach((t, j) => renderExpedition(normalizeManifest(t), expeditions.length + j));
   })
   .catch(() => {});
+
+/* ---------------------------------------------------------------------------
+   Innlogging og delte ekspedisjoner (Supabase)
+
+   Kun aktiv når window.FORELAND_SUPABASE er fylt ut. Da dukker innloggingsfeltet
+   opp, og turer fra databasen (offentlige + dine egne/inviterte) legges til i
+   lista i tillegg til turene fra turer.json. Er konfig tom, skjer ingenting og
+   siden er akkurat som før. Se supabase/LES-MEG.md.
+--------------------------------------------------------------------------- */
+const sbCfg = window.FORELAND_SUPABASE || {};
+let sb = null;
+if (sbCfg.url && sbCfg.anonKey && window.supabase) {
+  sb = window.supabase.createClient(sbCfg.url, sbCfg.anonKey);
+  initAuth();
+}
+
+function initAuth(){
+  document.getElementById("authbar").hidden = false;
+  const outBox = document.getElementById("auth-out");
+  const inBox  = document.getElementById("auth-in");
+  const who    = document.getElementById("auth-who");
+  const msg    = document.getElementById("auth-msg");
+
+  function paint(session){
+    const user = session && session.user;
+    outBox.hidden = !!user;
+    inBox.hidden  = !user;
+    if (user) who.textContent = user.email || "innlogget";
+  }
+
+  sb.auth.getSession().then(({ data }) => { paint(data.session); lastEkspedisjonerFraDb(); });
+  sb.auth.onAuthStateChange((_e, session) => { paint(session); lastEkspedisjonerFraDb(); });
+
+  document.getElementById("auth-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = document.getElementById("auth-email").value.trim();
+    if (!email) return;
+    msg.hidden = false; msg.textContent = "Sender lenke …";
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href },
+    });
+    msg.textContent = error
+      ? "Kunne ikke sende: " + error.message
+      : "Sjekk e-posten din – klikk lenken for å logge inn.";
+  });
+
+  document.getElementById("auth-logout").addEventListener("click", () => sb.auth.signOut());
+}
+
+// Hent turer fra databasen og tegn dem sammen med turer.json-turene. RLS sørger
+// for at du bare får se offentlige turer + dine egne/inviterte. Kalles på nytt
+// hver gang innloggingen endrer seg.
+let dbCards = [];
+async function lastEkspedisjonerFraDb(){
+  if (!sb) return;
+  dbCards.forEach(el => el.remove());
+  dbCards = [];
+
+  const { data, error } = await sb
+    .from("expeditions")
+    .select("id, slug, eier, offentlig, data")
+    .order("endret", { ascending: false });
+  if (error || !data) return;
+
+  const { data: sess } = await sb.auth.getSession();
+  const meg = sess.session && sess.session.user ? sess.session.user.id : null;
+
+  data.forEach((row, k) => {
+    const exp = normalizeManifest(Object.assign({ id: row.slug }, row.data));
+    exp.editable = false;          // lagring/redigering fra databasen kommer i neste trinn
+    exp.mine = row.eier === meg;   // markør til senere (invitere/bryter)
+    renderExpedition(exp, expeditions.length + k);
+    dbCards.push(doneGrid.lastElementChild);
+  });
+}
 
 /* ---------------------------------------------------------------------------
    FANE 2: Planlegger
