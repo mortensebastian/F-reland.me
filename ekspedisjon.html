@@ -875,8 +875,19 @@ function renderExpedition(exp, i){
   });
 }
 
+// Nummerér kortene (01, 02 …) etter rekkefølgen de faktisk har i lista. Kalles
+// etter hver innlasting, siden turer.json og databasen fylles inn asynkront og
+// vi ellers ikke vet på forhånd hvor mange kort som kommer foran.
+function renummererKort(){
+  doneGrid.querySelectorAll(":scope > .card").forEach((kort, idx) => {
+    const n = kort.querySelector(".num");
+    if (n) n.textContent = String(idx + 1).padStart(2, "0");
+  });
+}
+
 // Innebygde turer: ferdige ruter tegnes automatisk, øvrige lar deg laste opp GPX.
 expeditions.forEach((exp, i) => renderExpedition(Object.assign({}, exp, { allowUpload: !exp.route }), i));
+renummererKort();
 
 // Datadrevne turer fra turer.json (planlagte og fullførte). Legg til turer der
 // – se turer/LES-MEG.md. Feiler stille hvis fila mangler (f.eks. lokalt uten server).
@@ -885,6 +896,7 @@ fetch("/turer.json")
   .then(data => {
     if (!data || !Array.isArray(data.turer)) return;
     data.turer.forEach((t, j) => renderExpedition(normalizeManifest(t), expeditions.length + j));
+    renummererKort();
   })
   .catch(() => {});
 
@@ -944,46 +956,60 @@ function initAuth(){
 // for at du bare får se offentlige turer + dine egne/inviterte. Kalles på nytt
 // hver gang innloggingen endrer seg.
 let dbCards = [];
+let lasterEksp = false, laastPaaNytt = false;
 async function lastEkspedisjonerFraDb(){
   if (!sb) return;
-  dbCards.forEach(el => el.remove());
-  dbCards = [];
+  // Samtidige kall (getSession + onAuthStateChange ved innlasting, pluss lagring/
+  // sletting) skal ikke tegne de samme turene oppå hverandre. Kjør ett om gangen;
+  // ba noe om oppfriskning mens vi holdt på, tar vi en ekstra runde til slutt.
+  if (lasterEksp){ laastPaaNytt = true; return; }
+  lasterEksp = true;
+  try {
+    const { data, error } = await sb
+      .from("expeditions")
+      .select("id, slug, eier, offentlig, data")
+      .order("endret", { ascending: false });
+    if (error || !data) return;
 
-  const { data, error } = await sb
-    .from("expeditions")
-    .select("id, slug, eier, offentlig, data")
-    .order("endret", { ascending: false });
-  if (error || !data) return;
+    const { data: sess } = await sb.auth.getSession();
+    const meg = sess.session && sess.session.user ? sess.session.user.id : null;
 
-  const { data: sess } = await sb.auth.getSession();
-  const meg = sess.session && sess.session.user ? sess.session.user.id : null;
-
-  // Turene jeg er invitert bidragsyter på – de kan jeg også redigere.
-  let medlemSet = new Set();
-  if (meg){
-    const { data: medl } = await sb.from("expedition_members").select("ekspedisjon").eq("bruker", meg);
-    (medl || []).forEach(m => medlemSet.add(m.ekspedisjon));
-  }
-
-  data.forEach((row, k) => {
-    const mine = row.eier === meg;                 // eier
-    const bidrar = medlemSet.has(row.id);          // invitert bidragsyter
-    // _db*-feltene følger med til redigerTur, så vi oppdaterer riktig rad ved lagring.
-    const exp = normalizeManifest(Object.assign(
-      { id: row.slug, _dbId: row.id, _dbOffentlig: row.offentlig, _dbEierMeg: mine }, row.data));
-    exp.editable = mine || bidrar; // eier og bidragsytere kan redigere
-    exp.mine = mine;               // men bare eieren styrer deling (panelet under)
-    exp.dbId = row.id;
-    exp.offentlig = row.offentlig;
-    renderExpedition(exp, expeditions.length + k);
-    const kort = doneGrid.lastElementChild;
-    dbCards.push(kort);
-    // Eierens delingspanel: synlighet + invitere venner.
-    if (mine){
-      const boks = kort.querySelector(".dele");
-      if (boks) byggDelingspanel(boks, exp.dbId, exp.offentlig, exp.navn || exp.id);
+    // Turene jeg er invitert bidragsyter på – de kan jeg også redigere.
+    let medlemSet = new Set();
+    if (meg){
+      const { data: medl } = await sb.from("expedition_members").select("ekspedisjon").eq("bruker", meg);
+      (medl || []).forEach(m => medlemSet.add(m.ekspedisjon));
     }
-  });
+
+    // Tøm forrige runde og tegn på nytt samlet – etter at alt er hentet – så to
+    // parallelle kall ikke rekker å legge inn dubletter mellom henting og tegning.
+    dbCards.forEach(el => el.remove());
+    dbCards = [];
+    data.forEach((row, k) => {
+      const mine = row.eier === meg;                 // eier
+      const bidrar = medlemSet.has(row.id);          // invitert bidragsyter
+      // _db*-feltene følger med til redigerTur, så vi oppdaterer riktig rad ved lagring.
+      const exp = normalizeManifest(Object.assign(
+        { id: row.slug, _dbId: row.id, _dbOffentlig: row.offentlig, _dbEierMeg: mine }, row.data));
+      exp.editable = mine || bidrar; // eier og bidragsytere kan redigere
+      exp.mine = mine;               // men bare eieren styrer deling (panelet under)
+      exp.dbId = row.id;
+      exp.offentlig = row.offentlig;
+      renderExpedition(exp, expeditions.length + k);
+      const kort = doneGrid.lastElementChild;
+      dbCards.push(kort);
+      // Eierens delingspanel: synlighet + invitere venner.
+      if (mine){
+        const boks = kort.querySelector(".dele");
+        if (boks) byggDelingspanel(boks, exp.dbId, exp.offentlig, exp.navn || exp.id);
+      }
+    });
+    renummererKort();
+  } finally {
+    lasterEksp = false;
+    // Kom det inn nye kall mens vi jobbet, kjør én gang til med ferske data.
+    if (laastPaaNytt){ laastPaaNytt = false; lastEkspedisjonerFraDb(); }
+  }
 }
 
 // Bygg delingspanelet på en egen databasetur: privat/offentlig-bryter, felt for
@@ -1466,9 +1492,13 @@ async function lagreTilDatabase(){
     if (redigerDb.eierMeg) patch.offentlig = offentlig;
     ({ error } = await sb.from("expeditions").update(patch).eq("id", redigerDb.id));
   } else {
-    ({ error } = await sb.from("expeditions").insert(
-      { slug: id, eier: bruker.id, offentlig: offentlig, data: ordered }
-    ));
+    // Ny rad – hent id-en tilbake, så vi kobler skjemaet til den. Da oppdaterer et
+    // nytt trykk på «Lagre» samme rad i stedet for å lage en ny (unngår dubletter).
+    const { data: nyRad, error: insErr } = await sb.from("expeditions")
+      .insert({ slug: id, eier: bruker.id, offentlig: offentlig, data: ordered })
+      .select("id").single();
+    error = insErr;
+    if (!error && nyRad) redigerDb = { id: nyRad.id, offentlig: offentlig, eierMeg: true };
   }
 
   knapp.disabled = false;
