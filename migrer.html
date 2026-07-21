@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Migrer turer til databasen · Foreland</title>
+
+<!-- Engangsverktøy: flytter turene i turer.json inn i Supabase som dine egne
+     ekspedisjoner. Kjøres én gang, innlogget. Slett fila etterpå. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+  // Samme offentlige konfig som ekspedisjon.html (RLS styrer tilgang).
+  window.FORELAND_SUPABASE = {
+    url:     "https://lahtnksohlyliplztsgo.supabase.co",
+    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhaHRua3NvaGx5bGlwbHp0c2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MDQ3NjUsImV4cCI6MjEwMDE4MDc2NX0.mao-1qcHmd3JEs6NW6QzGRiZCvoFZFVHZr9R6GMXBP8"
+  };
+</script>
+
+<style>
+  :root{--paper:#f3ede1;--ink:#20302f;--muted:#6c726a;--line:#d7cdb9;--accent:#2f7d72;--warm:#c0762f;--card:#faf6ee;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:"Hanken Grotesk",system-ui,sans-serif;line-height:1.6;padding:2.5rem 1.2rem;}
+  .wrap{max-width:640px;margin:0 auto;}
+  a.back{color:var(--muted);text-decoration:none;font-size:.9rem;}
+  a.back:hover{color:var(--accent);}
+  h1{font-family:Georgia,"Times New Roman",serif;font-size:1.9rem;margin:.6rem 0 .3rem;}
+  .lede{color:var(--muted);margin-bottom:1.6rem;}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.2rem 1.3rem;margin-bottom:1.2rem;}
+  .btn{display:inline-flex;align-items:center;gap:.4rem;font:inherit;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.55rem .9rem;cursor:pointer;transition:border-color .2s,color .2s;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn:disabled{opacity:.55;cursor:default;}
+  input[type=email]{font:inherit;padding:.55rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);min-width:15rem;}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;}
+  .hint{color:var(--muted);font-size:.9rem;margin-top:.5rem;}
+  .status{list-style:none;margin:.8rem 0 0;padding:0;display:flex;flex-direction:column;gap:.4rem;}
+  .status li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;font-size:.92rem;}
+  .ok{color:var(--accent);} .skip{color:var(--muted);} .err{color:#b1443a;}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:.05rem .3rem;}
+  [hidden]{display:none!important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/ekspedisjon.html">← Tilbake til ekspedisjon</a>
+  <h1>Migrer turer til databasen</h1>
+  <p class="lede">Flytter turene i <code>turer.json</code> inn i databasen som dine egne
+    ekspedisjoner. Kjør én gang. Trygt å kjøre på nytt – turer som allerede finnes hoppes over.</p>
+
+  <!-- Innlogging: trengs for at radene skal eies av deg (RLS). -->
+  <div class="box" id="login-box" hidden>
+    <p>Du må være logget inn for å importere. Bruker samme e-post-innlogging som ekspedisjonssiden.</p>
+    <form id="login-form" class="row" style="margin-top:.8rem">
+      <input type="email" id="login-email" placeholder="din@e-post.no" autocomplete="email" required />
+      <button class="btn" type="submit">Send innloggingslenke</button>
+    </form>
+    <p class="hint" id="login-msg" hidden></p>
+  </div>
+
+  <!-- Selve importen. -->
+  <div class="box" id="import-box" hidden>
+    <p id="who" class="hint" style="margin-top:0"></p>
+    <div class="row" style="margin-top:.6rem">
+      <button class="btn" id="import-btn" type="button">Importer turer fra turer.json</button>
+    </div>
+    <ul class="status" id="status"></ul>
+    <p class="hint" id="done-note" hidden>
+      Ferdig! Gå til <a href="/ekspedisjon.html">ekspedisjon</a> og sjekk at turene ligger under
+      «Ekspedisjoner». Deretter kan du fjerne dem fra <code>turer.json</code> (så de ikke vises dobbelt),
+      og slette denne fila (<code>migrer.html</code>).
+    </p>
+  </div>
+
+  <div class="box" id="nosb-box" hidden>
+    <p>Supabase er ikke konfigurert. Fyll ut <code>window.FORELAND_SUPABASE</code> øverst i fila først.</p>
+  </div>
+</div>
+
+<script>
+const cfg = window.FORELAND_SUPABASE || {};
+const sb = (cfg.url && cfg.anonKey && window.supabase)
+  ? window.supabase.createClient(cfg.url, cfg.anonKey) : null;
+
+const loginBox  = document.getElementById("login-box");
+const importBox = document.getElementById("import-box");
+const nosbBox   = document.getElementById("nosb-box");
+
+if (!sb){
+  nosbBox.hidden = false;
+} else {
+  // Vis riktig boks etter innloggingsstatus (økten deles med ekspedisjon.html).
+  function paint(session){
+    const user = session && session.user;
+    loginBox.hidden  = !!user;
+    importBox.hidden = !user;
+    if (user) document.getElementById("who").textContent = "Logget inn som " + (user.email || "deg") + ".";
+  }
+  sb.auth.getSession().then(({ data }) => paint(data.session));
+  sb.auth.onAuthStateChange((_e, session) => paint(session));
+
+  document.getElementById("login-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = document.getElementById("login-email").value.trim();
+    if (!email) return;
+    const msg = document.getElementById("login-msg");
+    msg.hidden = false; msg.textContent = "Sender lenke …";
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+    msg.textContent = error ? "Kunne ikke sende: " + error.message
+      : "Sjekk e-posten din – klikk lenken, så havner du tilbake hit innlogget.";
+  });
+
+  const statusListe = document.getElementById("status");
+  function loggStatus(tekst, klasse){
+    const li = document.createElement("li");
+    if (klasse) li.className = klasse;
+    li.textContent = tekst;
+    statusListe.appendChild(li);
+    return li;
+  }
+
+  // Rekkefølge på nøklene i data-feltet – samme som planleggeren skriver.
+  function ordneData(t, gpxData){
+    const kilde = Object.assign({}, t, { gpxData: gpxData || undefined });
+    delete kilde.gpx;                              // DB-turer bærer GPX-en inline
+    const ut = {};
+    ["id","navn","status","type","dato","dager","beskrivelse","gpxData","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
+      .forEach(k => { if (kilde[k] !== undefined && kilde[k] !== null && kilde[k] !== "") ut[k] = kilde[k]; });
+    return ut;
+  }
+
+  document.getElementById("import-btn").addEventListener("click", async () => {
+    const knapp = document.getElementById("import-btn");
+    knapp.disabled = true;
+    statusListe.innerHTML = "";
+    document.getElementById("done-note").hidden = true;
+
+    const { data: sess } = await sb.auth.getSession();
+    const bruker = sess.session && sess.session.user;
+    if (!bruker){ loggStatus("Du er ikke innlogget.", "err"); knapp.disabled = false; return; }
+
+    let manifest;
+    try {
+      const r = await fetch("/turer.json", { cache: "no-store" });
+      manifest = await r.json();
+    } catch(e){ loggStatus("Kunne ikke lese turer.json: " + e.message, "err"); knapp.disabled = false; return; }
+
+    const turer = (manifest && manifest.turer) || [];
+    if (!turer.length){ loggStatus("Ingen turer i turer.json.", "skip"); knapp.disabled = false; return; }
+
+    // Hva har jeg allerede? Unngå dubletter ved ny kjøring.
+    const { data: mine } = await sb.from("expeditions").select("slug").eq("eier", bruker.id);
+    const finnes = new Set((mine || []).map(r => r.slug));
+
+    let lagtTil = 0;
+    for (const t of turer){
+      const navn = t.navn || t.id;
+      if (finnes.has(t.id)){ loggStatus("Hoppet over «" + navn + "» – finnes allerede.", "skip"); continue; }
+
+      const li = loggStatus("Importerer «" + navn + "» …");
+      let gpxData = null;
+      if (t.gpx){
+        try {
+          const gr = await fetch(t.gpx, { cache: "no-store" });
+          if (gr.ok) gpxData = await gr.text();
+        } catch(e){ /* uten GPX importerer vi metadataene likevel */ }
+      }
+
+      const { error } = await sb.from("expeditions").insert({
+        slug: t.id, eier: bruker.id, offentlig: true, data: ordneData(t, gpxData),
+      });
+      if (error){ li.textContent = "Feil på «" + navn + "»: " + error.message; li.className = "err"; }
+      else { li.textContent = "La til «" + navn + "»" + (gpxData ? " (med GPX)" : " (uten GPX)") + "."; li.className = "ok"; lagtTil++; }
+    }
+
+    loggStatus("Ferdig: " + lagtTil + " lagt til, " + (turer.length - lagtTil) + " hoppet over/feilet.");
+    document.getElementById("done-note").hidden = false;
+    knapp.disabled = false;
+  });
+}
+</script>
+</body>
+</html>
