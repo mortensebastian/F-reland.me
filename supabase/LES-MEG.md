@@ -10,15 +10,16 @@ server å drifte, ingen byggesteg. Tilgangsstyringen ligger i databasen (Row Lev
 Security), så den offentlige «anon»-nøkkelen er trygg å ha i koden.
 
 ## Trinnvis oppbygging
-Dette bygges i tre trinn. Du leser dette etter **trinn 2**:
+Alle tre trinn er nå på plass:
 
 1. **Skjema + innlogging** ✅ – databasen (denne mappa) og «Logg inn»-feltet på
    ekspedisjonssiden. Innloggede brukere ser sine egne + offentlige turer.
 2. **Lagre/redigere fra planleggeren** ✅ – knappen «Lagre til Ekspedisjon» skriver
    turen (inkludert rute) rett til databasen, uten commit eller filopplasting.
    «Rediger denne turen» på egne databaseturer henter alt tilbake i planleggeren.
-3. **Privat/offentlig-bryter + invitere venner** (kommer). Fram til da er alle
-   nye turer lagret via planleggeren **private** som standard.
+3. **Privat/offentlig + invitere venner** ✅ – synlighetsvelger i lagre-skjemaet og
+   en bryter på hvert eget turkort, pluss et felt for å invitere venner på e-post
+   til å bidra på en ekspedisjon.
 
 ## Sett opp Supabase (engangsjobb)
 
@@ -27,7 +28,9 @@ Dette bygges i tre trinn. Du leser dette etter **trinn 2**:
    database-passord.
 2. Åpne **SQL Editor** i prosjektet, lim inn hele innholdet i
    [`migrations/0001_init.sql`](migrations/0001_init.sql) og trykk **Run**.
-   Da opprettes tabellene, tilgangsreglene og triggerne.
+   Da opprettes tabellene, tilgangsreglene og triggerne. Kjør deretter
+   [`migrations/0002_deling.sql`](migrations/0002_deling.sql) på samme måte –
+   den legger til invitasjoner (privat/offentlig-deling og «inviter en venn»).
 3. Skru på innlogging med e-postlenke: **Authentication → Providers → Email**,
    og la «Email» stå på. (Google e.l. kan legges til senere samme sted.)
 4. **Authentication → URL Configuration:** sett *Site URL* til
@@ -67,13 +70,34 @@ under **Ekspedisjoner**, med en **«Rediger denne turen»**-knapp som henter alt
 (felter, etapper, pakkeliste og ruta) tilbake i planleggeren. Lagrer du på nytt
 med samme id, oppdateres samme rad i stedet for å lage en ny.
 
+## Dele en tur (privat/offentlig + invitere)
+
+På hvert av dine egne turkort ligger et **Deling**-panel:
+
+- **Privat/offentlig-bryter.** Privat = bare du og de du inviterer ser turen.
+  Offentlig = alle som besøker siden ser den. Du kan også velge synlighet
+  allerede når du lagrer, via «Synlighet»-feltet i lagre-skjemaet.
+- **Inviter en venn** ved å skrive e-posten deres og trykke «Inviter».
+  - Har vennen allerede logget inn på siden, blir de lagt til som bidragsyter
+    med en gang og kan redigere turen.
+  - Har de ikke en konto ennå, lagres invitasjonen «ventende», og de blir
+    bidragsyter automatisk første gang de logger inn med den e-posten.
+- Lista under viser bidragsytere og ventende invitasjoner, hver med et kryss for
+  å fjerne / trekke tilbake.
+
+En **bidragsyter** ser turen (også om den er privat) og får sin egen «Rediger
+denne turen»-knapp – de kan endre innhold og rute, og lagringen oppdaterer den
+samme turen. Bare **eieren** kan endre synlighet, invitere/fjerne folk eller
+slette turen.
+
 ## Datamodell (kort)
 
 | Tabell | Innhold |
 | --- | --- |
 | `profiles` | Én rad per bruker: id + visningsnavn. Lages automatisk ved registrering. |
 | `expeditions` | Én rad per tur: `eier`, `offentlig`, `slug`, og hele turen i `data` (samme form som en `turer.json`-oppføring). |
-| `expedition_members` | Inviterte bidragsytere: hvem som får redigere hvilken tur. |
+| `expedition_members` | Bidragsytere som får redigere en tur (venner som allerede har konto). |
+| `expedition_invites` | Ventende invitasjoner på e-post, for venner uten konto ennå. Blir til medlemskap ved innlogging. |
 
 ## Tilgangsregler (håndheves i databasen)
 

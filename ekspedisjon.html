@@ -162,6 +162,15 @@
   .auth-form{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;}
   .auth-form input{flex:1;min-width:12rem;font-family:"Hanken Grotesk",sans-serif;font-size:.9rem;padding:.5rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);}
   .auth-in{display:flex;align-items:center;gap:.8rem;justify-content:space-between;flex-wrap:wrap;}
+  /* Delingspanel på egne databaseturer */
+  .dele{margin-top:1.3rem;padding-top:1.1rem;border-top:1px solid var(--line);}
+  .dele-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem;}
+  .dele-synlig{display:inline-flex;align-items:center;gap:.5rem;font-size:.86rem;color:var(--ink);cursor:pointer;}
+  .dele-row input[type=email]{flex:1;min-width:11rem;font-family:"Hanken Grotesk",sans-serif;font-size:.9rem;padding:.5rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);}
+  .dele-liste{list-style:none;margin:.4rem 0 0;padding:0;display:flex;flex-direction:column;gap:.35rem;}
+  .dele-liste li{display:flex;align-items:center;justify-content:space-between;gap:.6rem;font-size:.88rem;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.4rem .65rem;}
+  .dele-liste em{color:var(--muted);font-style:normal;font-size:.8rem;}
+  .d-fjern{border:none;background:transparent;color:var(--warm);font-size:1.1rem;line-height:1;cursor:pointer;padding:0 .2rem;}
   .coordlist{margin-top:1rem;max-height:150px;overflow:auto;font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;background:var(--paper);}
   .coordlist:empty{display:none;}
   .coordlist div{display:flex;justify-content:space-between;gap:1rem;padding:.15rem 0;}
@@ -265,6 +274,9 @@
         <div class="form-row">
           <span class="form-field"><label for="st-status">Status</label>
             <select id="st-status"><option value="planlagt">Planlagt</option><option value="fullfort">Fullført</option></select>
+          </span>
+          <span class="form-field" id="st-synlig-field" hidden><label for="st-synlig">Synlighet</label>
+            <select id="st-synlig"><option value="privat">Privat</option><option value="offentlig">Offentlig</option></select>
           </span>
           <span class="form-field"><label for="st-type">Type</label><input id="st-type" type="text" placeholder="Fottur" /></span>
           <span class="form-field"><label for="st-dato">Dato</label><input id="st-dato" type="date" /></span>
@@ -744,6 +756,7 @@ function renderExpedition(exp, i){
             '<span class="hint" style="margin:0">Åpner planleggeren med turen ferdig utfylt.</span>' +
           '</div>'
         : '') +
+      (exp.mine ? '<div class="dele"></div>' : '') +
     '</div>';
   doneGrid.appendChild(d);
 
@@ -909,6 +922,7 @@ function initAuth(){
     if (user) who.textContent = user.email || "innlogget";
     document.getElementById("st-save-db").hidden = !user;
     document.getElementById("st-db-hint").hidden = !user;
+    document.getElementById("st-synlig-field").hidden = !user;
   }
 
   sb.auth.getSession().then(({ data }) => { paint(data.session); lastEkspedisjonerFraDb(); });
@@ -949,14 +963,126 @@ async function lastEkspedisjonerFraDb(){
   const { data: sess } = await sb.auth.getSession();
   const meg = sess.session && sess.session.user ? sess.session.user.id : null;
 
+  // Turene jeg er invitert bidragsyter på – de kan jeg også redigere.
+  let medlemSet = new Set();
+  if (meg){
+    const { data: medl } = await sb.from("expedition_members").select("ekspedisjon").eq("bruker", meg);
+    (medl || []).forEach(m => medlemSet.add(m.ekspedisjon));
+  }
+
   data.forEach((row, k) => {
-    const mine = row.eier === meg;
-    // _dbOffentlig følger med til redigerTur, så vi husker privat/offentlig ved lagring på nytt.
-    const exp = normalizeManifest(Object.assign({ id: row.slug, _dbOffentlig: row.offentlig }, row.data));
-    exp.editable = mine;   // kun eieren kan redigere her – invitere/bidra kommer i neste trinn
-    exp.mine = mine;
+    const mine = row.eier === meg;                 // eier
+    const bidrar = medlemSet.has(row.id);          // invitert bidragsyter
+    // _db*-feltene følger med til redigerTur, så vi oppdaterer riktig rad ved lagring.
+    const exp = normalizeManifest(Object.assign(
+      { id: row.slug, _dbId: row.id, _dbOffentlig: row.offentlig, _dbEierMeg: mine }, row.data));
+    exp.editable = mine || bidrar; // eier og bidragsytere kan redigere
+    exp.mine = mine;               // men bare eieren styrer deling (panelet under)
+    exp.dbId = row.id;
+    exp.offentlig = row.offentlig;
     renderExpedition(exp, expeditions.length + k);
-    dbCards.push(doneGrid.lastElementChild);
+    const kort = doneGrid.lastElementChild;
+    dbCards.push(kort);
+    // Eierens delingspanel: synlighet + invitere venner.
+    if (mine){
+      const boks = kort.querySelector(".dele");
+      if (boks) byggDelingspanel(boks, exp.dbId, exp.offentlig);
+    }
+  });
+}
+
+// Bygg delingspanelet på en egen databasetur: privat/offentlig-bryter, felt for
+// å invitere en venn på e-post, og lista over medlemmer + ventende invitasjoner.
+async function byggDelingspanel(boks, dbId, offentlig){
+  boks.innerHTML =
+    '<p class="blocklabel" style="margin-top:0">Deling</p>' +
+    '<div class="dele-row">' +
+      '<label class="dele-synlig"><input type="checkbox" class="d-off"' + (offentlig ? " checked" : "") + ' /> ' +
+        '<span class="d-off-tekst"></span></label>' +
+    '</div>' +
+    '<div class="dele-row">' +
+      '<input type="email" class="d-epost" placeholder="venn@e-post.no" autocomplete="off" />' +
+      '<button class="btn d-inviter" type="button">Inviter</button>' +
+    '</div>' +
+    '<p class="hint d-msg" hidden></p>' +
+    '<ul class="dele-liste" hidden></ul>';
+
+  const off = boks.querySelector(".d-off");
+  const offTekst = boks.querySelector(".d-off-tekst");
+  const msg = boks.querySelector(".d-msg");
+  function visSynlig(){ offTekst.textContent = off.checked ? "Offentlig – alle kan se turen" : "Privat – bare du og inviterte"; }
+  visSynlig();
+
+  off.addEventListener("change", async () => {
+    off.disabled = true;
+    const { error } = await sb.from("expeditions").update({ offentlig: off.checked }).eq("id", dbId);
+    off.disabled = false;
+    if (error){ off.checked = !off.checked; msg.hidden = false; msg.textContent = "Kunne ikke endre synlighet: " + error.message; }
+    else visSynlig();
+  });
+
+  const epost = boks.querySelector(".d-epost");
+  const inviterKnapp = boks.querySelector(".d-inviter");
+  async function inviter(){
+    const e = epost.value.trim();
+    if (!e) return;
+    inviterKnapp.disabled = true;
+    msg.hidden = false; msg.textContent = "Inviterer …";
+    const { data, error } = await sb.rpc("inviter_bruker", { exp: dbId, epost: e });
+    inviterKnapp.disabled = false;
+    if (error){ msg.textContent = "Kunne ikke invitere: " + error.message; return; }
+    epost.value = "";
+    msg.textContent = data === "lagt_til" ? "La til som bidragsyter."
+      : data === "invitert" ? "Invitert! De blir bidragsyter når de logger inn første gang."
+      : data === "eier" ? "Det er deg selv 🙂"
+      : "Ferdig.";
+    visMedlemmer(boks, dbId);
+  }
+  inviterKnapp.addEventListener("click", inviter);
+  epost.addEventListener("keydown", ev => { if (ev.key === "Enter"){ ev.preventDefault(); inviter(); } });
+
+  visMedlemmer(boks, dbId);
+}
+
+// Hent og vis medlemmer (bidragsytere) + ventende invitasjoner, med fjern-knapper.
+async function visMedlemmer(boks, dbId){
+  const liste = boks.querySelector(".dele-liste");
+  const [medlemRes, inviteRes] = await Promise.all([
+    sb.from("expedition_members").select("bruker, rolle").eq("ekspedisjon", dbId),
+    sb.from("expedition_invites").select("epost").eq("ekspedisjon", dbId),
+  ]);
+  const medlemmer = medlemRes.data || [];
+  const invitasjoner = inviteRes.data || [];
+
+  // Slå opp visningsnavn for medlemmene.
+  let navn = {};
+  const ids = medlemmer.map(m => m.bruker);
+  if (ids.length){
+    const { data: profiler } = await sb.from("profiles").select("id, visningsnavn").in("id", ids);
+    (profiler || []).forEach(p => { navn[p.id] = p.visningsnavn; });
+  }
+
+  const rader = [];
+  medlemmer.forEach(m => rader.push(
+    '<li><span>' + esc(navn[m.bruker] || "Bidragsyter") + '</span>' +
+    '<button class="d-fjern" type="button" data-type="medlem" data-id="' + esc(m.bruker) + '" title="Fjern">×</button></li>'
+  ));
+  invitasjoner.forEach(i => rader.push(
+    '<li><span>' + esc(i.epost) + ' <em>(venter)</em></span>' +
+    '<button class="d-fjern" type="button" data-type="invite" data-id="' + esc(i.epost) + '" title="Trekk tilbake">×</button></li>'
+  ));
+
+  liste.hidden = rader.length === 0;
+  liste.innerHTML = rader.join("");
+  liste.querySelectorAll(".d-fjern").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      if (btn.dataset.type === "medlem")
+        await sb.from("expedition_members").delete().eq("ekspedisjon", dbId).eq("bruker", btn.dataset.id);
+      else
+        await sb.from("expedition_invites").delete().eq("ekspedisjon", dbId).eq("epost", btn.dataset.id);
+      visMedlemmer(boks, dbId);
+    });
   });
 }
 
@@ -1324,8 +1450,11 @@ document.getElementById("st-gen").addEventListener("click", async () => {
 });
 
 // Lagre turen direkte som en delt ekspedisjon i databasen (krever innlogging).
-// Ingen filer å laste ned – GPX-en limes rett inn i raden. Oppdaterer samme rad
-// ved redigering (matcher på eier + id/slug), ellers lages en ny, privat tur.
+// Ingen filer å laste ned – GPX-en limes rett inn i raden.
+//  · Redigerer du en tur fra databasen (egen eller en du er invitert til å bidra
+//    på), oppdateres samme rad – matchet på rad-id, så eierskap og synlighet
+//    beholdes. Bidragsytere endrer bare innholdet; eieren styrer synligheten.
+//  · Ellers lages en ny tur som du eier, med valgt synlighet.
 async function lagreTilDatabase(){
   if (!sb) return;
   const { data: sess } = await sb.auth.getSession();
@@ -1348,18 +1477,26 @@ async function lagreTilDatabase(){
   ["id","navn","status","type","dato","dager","beskrivelse","gpxData","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
     .forEach(k => { if (obj[k] !== undefined) ordered[k] = obj[k]; });
 
-  const offentlig = redigerDb ? !!redigerDb.offentlig : false;
-  const { error } = await sb.from("expeditions").upsert(
-    { slug: id, eier: bruker.id, offentlig: offentlig, data: ordered },
-    { onConflict: "eier,slug" }
-  );
+  const offentlig = document.getElementById("st-synlig").value === "offentlig";
+  let error;
+  if (redigerDb && redigerDb.id){
+    // Oppdater eksisterende rad. Kun eieren endrer synligheten her.
+    const patch = { slug: id, data: ordered };
+    if (redigerDb.eierMeg) patch.offentlig = offentlig;
+    ({ error } = await sb.from("expeditions").update(patch).eq("id", redigerDb.id));
+  } else {
+    ({ error } = await sb.from("expeditions").insert(
+      { slug: id, eier: bruker.id, offentlig: offentlig, data: ordered }
+    ));
+  }
 
   knapp.disabled = false;
   msg.textContent = error
     ? "Kunne ikke lagre: " + error.message
     : "Lagret! Turen ligger nå under «Ekspedisjoner»." + advarsel;
   if (!error){
-    redigerDb = { offentlig: offentlig };
+    // Behold redigeringskoblingen så neste lagring oppdaterer samme rad.
+    if (redigerDb && redigerDb.id) redigerDb.offentlig = redigerDb.eierMeg ? offentlig : redigerDb.offentlig;
     await lastEkspedisjonerFraDb();
   }
 }
@@ -1382,6 +1519,9 @@ function nullstillSkjema(){
   ["st-navn","st-id","st-type","st-dato","st-dager","st-stigning","st-beskrivelse","st-notater"]
     .forEach(id => { document.getElementById(id).value = ""; });
   document.getElementById("st-status").value = "planlagt";
+  document.getElementById("st-synlig").value = "privat";
+  // Vis synlighetsvelgeren igjen når man er innlogget (samme tilstand som lagre-knappen).
+  document.getElementById("st-synlig-field").hidden = document.getElementById("st-save-db").hidden;
   stIdTouched = false;
   redigerDb = null;
   document.getElementById("st-etapper").innerHTML = "";
@@ -1406,15 +1546,20 @@ async function redigerTur(t){
   const saveBox = document.querySelector(".save-tur");
   if (saveBox) saveBox.open = true;
 
-  // Husk om turen kommer fra databasen (og om den er offentlig), slik at
-  // «Lagre til Ekspedisjon» oppdaterer riktig rad og beholder synligheten.
-  redigerDb = t._dbOffentlig !== undefined ? { offentlig: t._dbOffentlig } : null;
+  // Husk om turen kommer fra databasen (rad-id, synlighet, om jeg er eier), slik
+  // at «Lagre til Ekspedisjon» oppdaterer riktig rad og beholder eierskap/synlighet.
+  redigerDb = t._dbId !== undefined
+    ? { id: t._dbId, offentlig: t._dbOffentlig, eierMeg: !!t._dbEierMeg }
+    : null;
 
   // Metadata
   document.getElementById("st-navn").value = t.navn || "";
   stIdTouched = true;                              // ikke overskriv id fra navn
   document.getElementById("st-id").value = t.id || "";
   document.getElementById("st-status").value = t.status || "planlagt";
+  document.getElementById("st-synlig").value = (redigerDb && redigerDb.offentlig) ? "offentlig" : "privat";
+  // Bidragsytere (ikke eier) skal ikke kunne endre synlighet – skjul velgeren.
+  document.getElementById("st-synlig-field").hidden = !!(redigerDb && !redigerDb.eierMeg);
   document.getElementById("st-type").value = t.type || "";
   document.getElementById("st-dato").value = t.dato || "";
   document.getElementById("st-dager").value = t.dager != null ? t.dager : "";
