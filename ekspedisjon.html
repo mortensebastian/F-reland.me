@@ -132,6 +132,7 @@
   .btn{display:inline-flex;align-items:center;gap:.4rem;font-family:"Hanken Grotesk",sans-serif;font-size:.86rem;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem .85rem;cursor:pointer;transition:border-color .2s,color .2s,background .2s;}
   .btn:hover{border-color:var(--accent);color:var(--accent);}
   .btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn-slett:hover{border-color:#b1443a;color:#b1443a;}
   .btn-file{position:relative;overflow:hidden;}
   .btn-file input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
   .field{display:inline-flex;align-items:center;gap:.35rem;font-size:.82rem;color:var(--muted);}
@@ -980,14 +981,14 @@ async function lastEkspedisjonerFraDb(){
     // Eierens delingspanel: synlighet + invitere venner.
     if (mine){
       const boks = kort.querySelector(".dele");
-      if (boks) byggDelingspanel(boks, exp.dbId, exp.offentlig);
+      if (boks) byggDelingspanel(boks, exp.dbId, exp.offentlig, exp.navn || exp.id);
     }
   });
 }
 
 // Bygg delingspanelet på en egen databasetur: privat/offentlig-bryter, felt for
 // å invitere en venn på e-post, og lista over medlemmer + ventende invitasjoner.
-async function byggDelingspanel(boks, dbId, offentlig){
+async function byggDelingspanel(boks, dbId, offentlig, navn){
   boks.innerHTML =
     '<p class="blocklabel" style="margin-top:0">Deling</p>' +
     '<div class="dele-row">' +
@@ -999,7 +1000,29 @@ async function byggDelingspanel(boks, dbId, offentlig){
       '<button class="btn d-inviter" type="button">Inviter</button>' +
     '</div>' +
     '<p class="hint d-msg" hidden></p>' +
-    '<ul class="dele-liste" hidden></ul>';
+    '<ul class="dele-liste" hidden></ul>' +
+    '<div class="dele-row" style="margin-top:1rem">' +
+      '<button class="btn btn-slett d-slett" type="button">Slett ekspedisjon</button>' +
+    '</div>';
+
+  // Slett hele ekspedisjonen (kun eieren ser denne knappen). Kan ikke angres.
+  const slettKnapp = boks.querySelector(".d-slett");
+  const slettMsg = boks.querySelector(".d-msg");
+  slettKnapp.addEventListener("click", async () => {
+    if (!confirm("Slette «" + (navn || "denne turen") + "»? Dette kan ikke angres.")) return;
+    slettKnapp.disabled = true;
+    slettMsg.hidden = false; slettMsg.textContent = "Sletter …";
+    const { error } = await sb.from("expeditions").delete().eq("id", dbId);
+    if (error){
+      slettKnapp.disabled = false;
+      slettMsg.textContent = "Kunne ikke slette: " + error.message;
+      return;
+    }
+    // Redigerer du nettopp denne turen i planleggeren, koble fra så neste lagring
+    // ikke prøver å oppdatere en rad som er borte.
+    if (redigerDb && redigerDb.id === dbId) redigerDb = null;
+    await lastEkspedisjonerFraDb();
+  });
 
   const off = boks.querySelector(".d-off");
   const offTekst = boks.querySelector(".d-off-tekst");
