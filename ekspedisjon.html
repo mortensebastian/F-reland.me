@@ -126,7 +126,6 @@
   .subblock .rm{position:absolute;top:.45rem;right:.55rem;border:none;background:none;color:var(--muted);cursor:pointer;font-size:1.2rem;line-height:1;padding:0;}
   .subblock .rm:hover{color:var(--warm);}
   .output{margin-top:1.2rem;}
-  .output textarea{width:100%;min-height:9rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:.6rem;resize:vertical;white-space:pre;}
   .editing-note{color:var(--warm);font-weight:600;}
 
   /* ---------- Knapper / input ---------- */
@@ -259,12 +258,12 @@
     <p class="hint">Slå på «Legg til punkt ved klikk» og klikk i kartet, eller skriv inn koordinater manuelt. Markørene kan dras. <strong>Klikk på et punkt</strong> for å slette det eller sette inn et nytt før eller etter. Last opp en GPX-fil for å redigere en ferdig rute.</p>
     <div class="coordlist" id="plan-coords"></div>
 
-    <!-- Lag en ferdig turer.json-oppføring av det du har planlagt -->
+    <!-- Lagre det planlagte direkte som en ekspedisjon i databasen -->
     <details class="save-tur">
       <summary>Lagre som tur</summary>
       <div class="save-body">
-        <p class="hint">Fyll ut det du vil, og trykk «Lag JSON». Kopier oppføringen inn i <code>turer.json</code>, last ned GPX-fila og legg den i <code>turer/</code>, og commit. Se <a href="/turer/LES-MEG.md">turer/LES-MEG.md</a>.</p>
-        <p class="hint" id="st-db-hint" hidden>Er du logget inn, kan du i stedet trykke «Lagre til Ekspedisjon» – da lagres turen direkte, uten commit.</p>
+        <p class="hint">Fyll ut det du vil, og trykk «Lagre til Ekspedisjon» – turen lagres direkte i databasen, uten filer eller commit.</p>
+        <p class="hint" id="st-db-hint" hidden>Logg inn øverst på siden for å få lagre-knappen.</p>
         <p class="hint editing-note" id="st-editing" hidden></p>
 
         <div class="form-row">
@@ -299,8 +298,6 @@
         <div class="form-row"><button class="btn" id="st-add-gruppe" type="button">+ Legg til gruppe</button></div>
 
         <div class="form-row" style="margin-top:1.3rem;">
-          <button class="btn" id="st-gen" type="button">Lag JSON</button>
-          <button class="btn" id="st-copy" type="button" hidden>Kopier JSON</button>
           <button class="btn" id="st-save-db" type="button" hidden>Lagre til Ekspedisjon</button>
           <button class="btn" id="st-reset" type="button">Tøm skjema</button>
         </div>
@@ -308,9 +305,6 @@
         <p class="hint" id="st-progress" hidden></p>
         <div class="output" hidden id="st-output-wrap">
           <div id="st-profil"></div>
-          <span class="form-field wide"><label for="st-output">Oppføring for turer.json</label><textarea id="st-output" readonly></textarea></span>
-          <p class="hint" id="st-gpx-hint"></p>
-          <div class="form-row" id="st-downloads"></div>
         </div>
       </div>
     </details>
@@ -921,7 +915,7 @@ function initAuth(){
     inBox.hidden  = !user;
     if (user) who.textContent = user.email || "innlogget";
     document.getElementById("st-save-db").hidden = !user;
-    document.getElementById("st-db-hint").hidden = !user;
+    document.getElementById("st-db-hint").hidden = !!user;
     document.getElementById("st-synlig-field").hidden = !user;
   }
 
@@ -1261,7 +1255,7 @@ function addEtappeBlock(data){
       '<label class="btn btn-file" style="align-self:flex-start">Last opp GPX<input class="e-gpx" type="file" accept=".gpx,application/gpx+xml,text/xml" /></label></span></div>' +
     '<p class="hint e-gpx-info" style="margin-top:.3rem"></p>';
   b.querySelector(".rm").addEventListener("click", () => b.remove());
-  // Les inn etappe-ruta i minnet (ikke sendt noe sted før du trykker «Lag JSON»).
+  // Les inn etappe-ruta i minnet (ikke sendt noe sted før du trykker «Lagre til Ekspedisjon»).
   b.querySelector(".e-gpx").addEventListener("change", e => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -1304,14 +1298,6 @@ document.getElementById("st-add-gruppe").addEventListener("click", addPakkeBlock
 // Start med ett tomt felt av hver, så det er tydelig hva som kan fylles ut.
 addEtappeBlock();
 addPakkeBlock();
-
-function addDownloadButton(filename, text){
-  const btn = document.createElement("button");
-  btn.className = "btn"; btn.type = "button";
-  btn.textContent = "Last ned " + filename;
-  btn.addEventListener("click", () => download(filename, text));
-  document.getElementById("st-downloads").appendChild(btn);
-}
 
 // Les ut skjemaet til et rått tur-objekt (uten rute/høyde – det gjør behandleRuter()).
 // Returnerer null (og varsler) hvis navnet mangler.
@@ -1363,9 +1349,8 @@ function samleSkjemaData(){
 }
 
 // Hent høyde fra Kartverket for tur + etapper, og lag GPX-tekst for hver rute.
-// attachGpx(job, tekst) avgjør hva GPX-en blir: en nedlastbar fil (turer.json-flyten)
-// eller tekst limt rett inn i turen (database-flyten). Fyller også ut
-// distanse/stigning/fall/etapper/pakkeliste/notater på felt.obj.
+// attachGpx(job, tekst) limer GPX-teksten rett inn i turen (database-flyten).
+// Fyller også ut distanse/stigning/fall/etapper/pakkeliste/notater på felt.obj.
 async function behandleRuter(felt, attachGpx){
   const { obj, etapper, etappeJobs, pakke, manuellStigning, notater } = felt;
   const hasTurRoute = planPoints.length >= 2;
@@ -1375,14 +1360,12 @@ async function behandleRuter(felt, attachGpx){
   if (hasTurRoute) jobs.push({ target: obj, j: 0, tur: true, navn: obj.navn, latlngs: planPoints.slice(), eles: null });
   etappeJobs.forEach(x => jobs.push({ target: x.e, j: x.j, tur: false, navn: x.navn, latlngs: x.latlngs, eles: x.eles }));
 
-  const gen = document.getElementById("st-gen");
   const prog = document.getElementById("st-progress");
   const profilBoks = document.getElementById("st-profil");
   profilBoks.innerHTML = "";
   let advarsel = "", profilHtml = "";
 
   if (jobs.length){
-    gen.disabled = true;
     prog.hidden = false;
     let feilTotalt = 0, traffTotalt = 0;
     for (let ji = 0; ji < jobs.length; ji++){
@@ -1409,9 +1392,8 @@ async function behandleRuter(felt, attachGpx){
       if (prof) profilHtml += '<p class="blocklabel" style="margin-top:.8rem">' + esc(job.navn) + '</p>' + prof;
     }
     prog.hidden = true;
-    gen.disabled = false;
     profilBoks.innerHTML = profilHtml;
-    if (traffTotalt === 0) advarsel = " Fikk ingen høyde fra Kartverket (sjekk nett/tilgang) – filene er lagret uten høyde, og du kan fylle inn stigning manuelt.";
+    if (traffTotalt === 0) advarsel = " Fikk ingen høyde fra Kartverket (sjekk nett/tilgang) – turen lagres uten høyde, og du kan fylle inn stigning manuelt.";
   }
 
   if (manuellStigning) obj.stigning_m = Number(manuellStigning);
@@ -1421,33 +1403,6 @@ async function behandleRuter(felt, attachGpx){
 
   return { advarsel: advarsel, harRuter: jobs.length > 0 };
 }
-
-document.getElementById("st-gen").addEventListener("click", async () => {
-  const felt = samleSkjemaData();
-  if (!felt) return;
-  const { id, obj } = felt;
-
-  document.getElementById("st-downloads").innerHTML = "";
-
-  const { advarsel, harRuter } = await behandleRuter(felt, (job, tekst) => {
-    const filnavn = job.tur ? (id + ".gpx") : (id + "-e" + job.j + ".gpx");
-    job.target.gpx = "/turer/" + filnavn;
-    addDownloadButton(filnavn, tekst);
-  });
-
-  // Rekkefølge på nøklene: sett stigning/notater/etapper/pakkeliste til slutt.
-  const ordered = {};
-  ["id","navn","status","type","dato","dager","beskrivelse","gpx","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
-    .forEach(k => { if (obj[k] !== undefined) ordered[k] = obj[k]; });
-
-  document.getElementById("st-output").value = JSON.stringify(ordered, null, 2);
-  document.getElementById("st-output-wrap").hidden = false;
-  document.getElementById("st-copy").hidden = false;
-  document.getElementById("st-gpx-hint").textContent =
-    (harRuter
-      ? "Lim oppføringen inn i «turer»-lista i turer.json (husk komma mellom oppføringer), og legg GPX-filene under i turer/."
-      : "Ingen rute er tegnet eller lastet opp, så turen får ikke kart. Tegn ruta eller legg til etappe-GPX først.") + advarsel;
-});
 
 // Lagre turen direkte som en delt ekspedisjon i databasen (krever innlogging).
 // Ingen filer å laste ned – GPX-en limes rett inn i raden.
@@ -1472,6 +1427,9 @@ async function lagreTilDatabase(){
   msg.textContent = "Lagrer …";
 
   const { advarsel } = await behandleRuter(felt, (job, tekst) => { job.target.gpxData = tekst; });
+
+  // Vis høydeprofilen når vi fikk høyde fra Kartverket.
+  document.getElementById("st-output-wrap").hidden = !document.getElementById("st-profil").innerHTML;
 
   const ordered = {};
   ["id","navn","status","type","dato","dager","beskrivelse","gpxData","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
@@ -1502,15 +1460,6 @@ async function lagreTilDatabase(){
 }
 document.getElementById("st-save-db").addEventListener("click", lagreTilDatabase);
 
-document.getElementById("st-copy").addEventListener("click", () => {
-  const ta = document.getElementById("st-output");
-  ta.select();
-  if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(() => {});
-  else document.execCommand("copy");
-  const btn = document.getElementById("st-copy"), t = btn.textContent;
-  btn.textContent = "Kopiert!"; setTimeout(() => { btn.textContent = t; }, 1200);
-});
-
 /* ---------------------------------------------------------------------------
    Rediger / tøm skjema
 --------------------------------------------------------------------------- */
@@ -1530,7 +1479,6 @@ function nullstillSkjema(){
   addPakkeBlock();
   clearPlan();
   document.getElementById("st-output-wrap").hidden = true;
-  document.getElementById("st-copy").hidden = true;
   document.getElementById("st-editing").hidden = true;
   document.getElementById("st-progress").hidden = true;
   const saveMsg = document.getElementById("st-save-msg");
@@ -1539,8 +1487,7 @@ function nullstillSkjema(){
 document.getElementById("st-reset").addEventListener("click", nullstillSkjema);
 
 // Åpne planleggeren med en eksisterende tur ferdig utfylt, klar til redigering.
-// Regenererer du, hentes høyden på nytt fra Kartverket – lim resultatet tilbake
-// i turer.json og last ned GPX-ene på nytt (samme filnavn overskriver).
+// Lagrer du på nytt, hentes høyden på nytt fra Kartverket og raden oppdateres.
 async function redigerTur(t){
   selectTab("plan");
   const saveBox = document.querySelector(".save-tur");
@@ -1588,10 +1535,9 @@ async function redigerTur(t){
   const note = document.getElementById("st-editing");
   note.textContent = redigerDb
     ? "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lagre til Ekspedisjon» for å oppdatere den. «Tøm skjema» starter på nytt."
-    : "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lag JSON» – behold samme id og filnavn så oppføringen erstatter den gamle. «Tøm skjema» starter på nytt.";
+    : "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lagre til Ekspedisjon» for å lagre den som din egen ekspedisjon. «Tøm skjema» starter på nytt.";
   note.hidden = false;
   document.getElementById("st-output-wrap").hidden = true;
-  document.getElementById("st-copy").hidden = true;
   if (saveBox) saveBox.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
