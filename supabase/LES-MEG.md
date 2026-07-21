@@ -31,6 +31,8 @@ Alle tre trinn er nå på plass:
    Da opprettes tabellene, tilgangsreglene og triggerne. Kjør deretter
    [`migrations/0002_deling.sql`](migrations/0002_deling.sql) på samme måte –
    den legger til invitasjoner (privat/offentlig-deling og «inviter en venn»).
+   Kjør til slutt [`migrations/0003_fiks_inviter.sql`](migrations/0003_fiks_inviter.sql),
+   som retter en tvetydig kolonnereferanse i invitasjonsfunksjonen.
 3. Skru på innlogging med e-postlenke: **Authentication → Providers → Email**,
    og la «Email» stå på. (Google e.l. kan legges til senere samme sted.)
 4. **Authentication → URL Configuration:** sett *Site URL* til
