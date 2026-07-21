@@ -10,13 +10,15 @@ server å drifte, ingen byggesteg. Tilgangsstyringen ligger i databasen (Row Lev
 Security), så den offentlige «anon»-nøkkelen er trygg å ha i koden.
 
 ## Trinnvis oppbygging
-Dette bygges i tre trinn. Du leser dette etter **trinn 1**:
+Dette bygges i tre trinn. Du leser dette etter **trinn 2**:
 
 1. **Skjema + innlogging** ✅ – databasen (denne mappa) og «Logg inn»-feltet på
    ekspedisjonssiden. Innloggede brukere ser sine egne + offentlige turer.
-2. **Lagre/redigere fra planleggeren** – «Lagre»-knapp som skriver rett til
-   databasen (kommer).
-3. **Privat/offentlig-bryter + invitere venner** (kommer).
+2. **Lagre/redigere fra planleggeren** ✅ – knappen «Lagre til Ekspedisjon» skriver
+   turen (inkludert rute) rett til databasen, uten commit eller filopplasting.
+   «Rediger denne turen» på egne databaseturer henter alt tilbake i planleggeren.
+3. **Privat/offentlig-bryter + invitere venner** (kommer). Fram til da er alle
+   nye turer lagret via planleggeren **private** som standard.
 
 ## Sett opp Supabase (engangsjobb)
 
@@ -55,6 +57,16 @@ Er feltene tomme, oppfører siden seg nøyaktig som før (kun turer fra
 `turer.json`), og innloggingsfeltet er skjult. Så snart begge er fylt ut, dukker
 «Logg inn»-feltet opp og databaseturene blir med i lista.
 
+## Lagre en tur (når du er logget inn)
+
+Åpne **Ekspedisjonsplanlegger** → **Lagre som tur**, fyll ut det du vil og trykk
+**«Lagre til Ekspedisjon»** (i stedet for «Lag JSON», som fortsatt er der for
+Mortens egne showcase-turer i `turer.json`). Ruta legges rett inn i databaseraden
+som GPX-tekst – ingen filer å laste ned eller commite. Turen dukker straks opp
+under **Ekspedisjoner**, med en **«Rediger denne turen»**-knapp som henter alt
+(felter, etapper, pakkeliste og ruta) tilbake i planleggeren. Lagrer du på nytt
+med samme id, oppdateres samme rad i stedet for å lage en ny.
+
 ## Datamodell (kort)
 
 | Tabell | Innhold |
@@ -74,4 +86,6 @@ Er feltene tomme, oppfører siden seg nøyaktig som før (kun turer fra
 
 `turer.json` forsvinner ikke: de innebygde/eksisterende turene vises fortsatt fra
 fila. Databaseturene legges til i tillegg. Vil du senere flytte en `turer.json`-tur
-inn i databasen, lager du den bare på nytt som innlogget bruker (trinn 2).
+inn i databasen, åpner du den med «Rediger denne turen» og trykker «Lagre til
+Ekspedisjon» i stedet for «Lag JSON» – da lagres den som en ny, privat tur under
+din bruker.

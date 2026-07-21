@@ -255,6 +255,7 @@
       <summary>Lagre som tur</summary>
       <div class="save-body">
         <p class="hint">Fyll ut det du vil, og trykk «Lag JSON». Kopier oppføringen inn i <code>turer.json</code>, last ned GPX-fila og legg den i <code>turer/</code>, og commit. Se <a href="/turer/LES-MEG.md">turer/LES-MEG.md</a>.</p>
+        <p class="hint" id="st-db-hint" hidden>Er du logget inn, kan du i stedet trykke «Lagre til Ekspedisjon» – da lagres turen direkte, uten commit.</p>
         <p class="hint editing-note" id="st-editing" hidden></p>
 
         <div class="form-row">
@@ -288,8 +289,10 @@
         <div class="form-row" style="margin-top:1.3rem;">
           <button class="btn" id="st-gen" type="button">Lag JSON</button>
           <button class="btn" id="st-copy" type="button" hidden>Kopier JSON</button>
+          <button class="btn" id="st-save-db" type="button" hidden>Lagre til Ekspedisjon</button>
           <button class="btn" id="st-reset" type="button">Tøm skjema</button>
         </div>
+        <p class="hint" id="st-save-msg" hidden></p>
         <p class="hint" id="st-progress" hidden></p>
         <div class="output" hidden id="st-output-wrap">
           <div id="st-profil"></div>
@@ -345,6 +348,18 @@ function parseGPX(text){
   if (!latlngs.length) throw new Error("Fant ingen punkter i GPX-fila.");
   const nameNode = doc.querySelector("trk > name, rte > name, name");
   return { latlngs, eles, name: nameNode ? nameNode.textContent.trim() : null };
+}
+
+// Last en rute enten fra en URL (kilde.gpx, turer.json-turer) eller fra
+// GPX-tekst lagret rett i databasen (kilde.gpxData, delte ekspedisjoner).
+async function lastRute(kilde){
+  if (kilde.gpxData) return parseGPX(kilde.gpxData);
+  if (kilde.gpx){
+    const r = await fetch(kilde.gpx);
+    if (!r.ok) throw new Error("Fant ikke " + kilde.gpx);
+    return parseGPX(await r.text());
+  }
+  throw new Error("Ingen rute funnet.");
 }
 
 function haversine(a, b){
@@ -644,6 +659,7 @@ function normalizeManifest(t){
     desc: t.beskrivelse,
     tag: parts.join(" · "),
     gpxUrl: t.gpx || null,
+    gpxData: t.gpxData || null,   // inline GPX-tekst (delte ekspedisjoner fra databasen)
     stats: {
       dist: t.distanse_km != null ? String(t.distanse_km).replace(".", ",") + " km" : null,
       ele: (t.stigning_m != null || t.fall_m != null)
@@ -665,19 +681,22 @@ function renderExpedition(exp, i){
 
   const baked = exp.route;                       // innebygd rute (koordinatliste)
   const gpxUrl = exp.gpxUrl;                      // rute som lastes fra en GPX-fil
+  const gpxData = exp.gpxData;                    // rute lagret som GPX-tekst i databasen
   const allowUpload = exp.allowUpload;            // la brukeren laste opp GPX selv
-  // Etapper med egen GPX. Finnes de, tegnes de i kartet (én farge hver) og har
-  // sin egen høydeprofil – da er de rutekilden for turen.
-  const etappeRoutes = (exp.etapper || []).map((e, ei) => ({ ei: ei, gpx: e.gpx })).filter(x => x.gpx);
+  // Etapper med egen GPX (fil eller inline). Finnes de, tegnes de i kartet
+  // (én farge hver) og har sin egen høydeprofil – da er de rutekilden for turen.
+  const etappeRoutes = (exp.etapper || [])
+    .map((e, ei) => ({ ei: ei, gpx: e.gpx, gpxData: e.gpxData }))
+    .filter(x => x.gpx || x.gpxData);
   const hasEtappeRoutes = etappeRoutes.length > 0;
-  const hasRoute = !!(baked || gpxUrl || allowUpload || hasEtappeRoutes);
+  const hasRoute = !!(baked || gpxUrl || gpxData || allowUpload || hasEtappeRoutes);
 
   let tools = "";
   if (baked)
     tools = '<div class="detail-tools"><span class="hint" style="margin:0">Ruta er hentet fra Garmin og tegnes automatisk under.</span></div>';
   else if (hasEtappeRoutes)
     tools = '<div class="detail-tools"><span class="hint" style="margin:0">Etappene tegnes automatisk i kartet under.</span></div>';
-  else if (gpxUrl)
+  else if (gpxUrl || gpxData)
     tools = '<div class="detail-tools"><span class="hint" style="margin:0">Ruta tegnes automatisk under.</span></div>';
   else if (allowUpload)
     tools = '<div class="detail-tools">' +
@@ -788,11 +807,9 @@ function renderExpedition(exp, i){
       const alle = [];
       let totDist = 0, totGain = 0, totLoss = 0, haveEle = false;
       for (let k = 0; k < etappeRoutes.length; k++){
-        const { ei, gpx } = etappeRoutes[k];
+        const { ei, gpx, gpxData: eGpxData } = etappeRoutes[k];
         try {
-          const r = await fetch(gpx);
-          if (!r.ok) throw new Error("Fant ikke " + gpx);
-          const g = parseGPX(await r.text());
+          const g = await lastRute({ gpx: gpx, gpxData: eGpxData });
           drawOne(g.latlngs, etappeFarger[ei % etappeFarger.length], { start: k === 0, end: k === etappeRoutes.length-1 });
           alle.push(...g.latlngs);
           const dist = totalDistance(g.latlngs); totDist += dist;
@@ -810,12 +827,10 @@ function renderExpedition(exp, i){
       return;
     }
 
-    if (gpxUrl){
+    if (gpxUrl || gpxData){
       drawn = true;
       try {
-        const r = await fetch(gpxUrl);
-        if (!r.ok) throw new Error("Fant ikke GPX-fila.");
-        const g = parseGPX(await r.text());
+        const g = await lastRute({ gpx: gpxUrl, gpxData: gpxData });
         drawOne(g.latlngs, etappeFarger[0], { start:true, end:true });
         fitTo(g.latlngs);
         if (!(exp.stats && exp.stats.dist)) setStat(".s-dist", fmtKm(totalDistance(g.latlngs)));
@@ -892,6 +907,8 @@ function initAuth(){
     outBox.hidden = !!user;
     inBox.hidden  = !user;
     if (user) who.textContent = user.email || "innlogget";
+    document.getElementById("st-save-db").hidden = !user;
+    document.getElementById("st-db-hint").hidden = !user;
   }
 
   sb.auth.getSession().then(({ data }) => { paint(data.session); lastEkspedisjonerFraDb(); });
@@ -933,9 +950,11 @@ async function lastEkspedisjonerFraDb(){
   const meg = sess.session && sess.session.user ? sess.session.user.id : null;
 
   data.forEach((row, k) => {
-    const exp = normalizeManifest(Object.assign({ id: row.slug }, row.data));
-    exp.editable = false;          // lagring/redigering fra databasen kommer i neste trinn
-    exp.mine = row.eier === meg;   // markør til senere (invitere/bryter)
+    const mine = row.eier === meg;
+    // _dbOffentlig følger med til redigerTur, så vi husker privat/offentlig ved lagring på nytt.
+    const exp = normalizeManifest(Object.assign({ id: row.slug, _dbOffentlig: row.offentlig }, row.data));
+    exp.editable = mine;   // kun eieren kan redigere her – invitere/bidra kommer i neste trinn
+    exp.mine = mine;
     renderExpedition(exp, expeditions.length + k);
     dbCards.push(doneGrid.lastElementChild);
   });
@@ -1084,19 +1103,20 @@ function linesToArr(text){ return text.split(/\n/).map(s => s.trim()).filter(Boo
 
 // Auto-utled id fra navn til brukeren selv redigerer id-feltet.
 let stIdTouched = false;
+// Satt av redigerTur() når du redigerer en tur som allerede ligger i databasen –
+// husker om den er offentlig, så «Lagre til Ekspedisjon» ikke nullstiller det.
+let redigerDb = null;
 document.getElementById("st-id").addEventListener("input", () => { stIdTouched = true; });
 document.getElementById("st-navn").addEventListener("input", e => {
   if (!stIdTouched) document.getElementById("st-id").value = slugify(e.target.value);
 });
 
 // Les inn en etappe-rute fra en URL (brukes ved redigering) og legg den i minnet.
-async function lastEtappeRute(b, url){
+async function lastEtappeRute(b, kilde){
   const info = b.querySelector(".e-gpx-info");
   info.textContent = "Laster rute …";
   try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("Fant ikke " + url);
-    const g = parseGPX(await r.text());
+    const g = await lastRute(kilde);
     b.__rute = { latlngs: g.latlngs, eles: g.eles };
     info.textContent = "Rute lastet: " + g.latlngs.length + " punkter · " + fmtKm(totalDistance(g.latlngs));
   } catch(err){ b.__rute = null; info.textContent = err.message; }
@@ -1133,7 +1153,7 @@ function addEtappeBlock(data){
     if (data.navn) b.querySelector(".e-navn").value = data.navn;
     if (data.notat) b.querySelector(".e-notat").value = data.notat;
     if (data.sporsmal && data.sporsmal.length) b.querySelector(".e-sporsmal").value = data.sporsmal.join("\n");
-    if (data.gpx) lastEtappeRute(b, data.gpx);
+    if (data.gpx || data.gpxData) lastEtappeRute(b, { gpx: data.gpx, gpxData: data.gpxData });
   }
   return b;
 }
@@ -1167,9 +1187,11 @@ function addDownloadButton(filename, text){
   document.getElementById("st-downloads").appendChild(btn);
 }
 
-document.getElementById("st-gen").addEventListener("click", async () => {
+// Les ut skjemaet til et rått tur-objekt (uten rute/høyde – det gjør behandleRuter()).
+// Returnerer null (og varsler) hvis navnet mangler.
+function samleSkjemaData(){
   const navn = stVal("st-navn");
-  if (!navn){ alert("Gi turen et navn først."); return; }
+  if (!navn){ alert("Gi turen et navn først."); return null; }
   const id = stVal("st-id") || slugify(navn);
 
   const obj = { id: id, navn: navn, status: stVal("st-status") };
@@ -1177,13 +1199,10 @@ document.getElementById("st-gen").addEventListener("click", async () => {
   const dato = stVal("st-dato"); if (dato) obj.dato = dato;
   const dager = stVal("st-dager"); if (dager) obj.dager = Number(dager);
   obj.beskrivelse = stVal("st-beskrivelse");
-
-  const hasTurRoute = planPoints.length >= 2;
-  if (hasTurRoute){ obj.gpx = "/turer/" + id + ".gpx"; obj.distanse_km = Math.round(totalDistance(planPoints) / 100) / 10; }
   const manuellStigning = stVal("st-stigning");
   const notater = document.getElementById("st-notater").value.trim();
 
-  // Etapper – og hvilke som har egen rute.
+  // Etapper – og hvilke som har egen rute (rutene behandles i behandleRuter()).
   const etapper = [];
   const etappeJobs = [];
   let j = 0;
@@ -1197,15 +1216,10 @@ document.getElementById("st-gen").addEventListener("click", async () => {
     const e = {};
     if (en) e.navn = en;
     if (et) e.notat = et;
-    if (rute){
-      const fn = id + "-e" + j + ".gpx";
-      e.gpx = "/turer/" + fn;
-      etappeJobs.push({ filename: fn, navn: en || ("Etappe " + j), latlngs: rute.latlngs, eles: rute.eles });
-    }
     e.sporsmal = sp;
     etapper.push(e);
+    if (rute) etappeJobs.push({ e: e, j: j, navn: en || ("Etappe " + j), latlngs: rute.latlngs, eles: rute.eles });
   });
-  if (etapper.length) obj.etapper = etapper;
 
   const pakke = [];
   document.querySelectorAll("#st-pakke .pakke-block").forEach(b => {
@@ -1218,18 +1232,26 @@ document.getElementById("st-gen").addEventListener("click", async () => {
       pakke.push(grp);
     }
   });
-  if (pakke.length) obj.pakkeliste = pakke;
 
-  // Bygg listen over ruter det skal hentes høyde for (tur + etapper).
+  return { id: id, obj: obj, etapper: etapper, etappeJobs: etappeJobs, pakke: pakke, manuellStigning: manuellStigning, notater: notater };
+}
+
+// Hent høyde fra Kartverket for tur + etapper, og lag GPX-tekst for hver rute.
+// attachGpx(job, tekst) avgjør hva GPX-en blir: en nedlastbar fil (turer.json-flyten)
+// eller tekst limt rett inn i turen (database-flyten). Fyller også ut
+// distanse/stigning/fall/etapper/pakkeliste/notater på felt.obj.
+async function behandleRuter(felt, attachGpx){
+  const { obj, etapper, etappeJobs, pakke, manuellStigning, notater } = felt;
+  const hasTurRoute = planPoints.length >= 2;
+  if (hasTurRoute) obj.distanse_km = Math.round(totalDistance(planPoints) / 100) / 10;
+
   const jobs = [];
-  if (hasTurRoute) jobs.push({ filename: id + ".gpx", navn: navn, latlngs: planPoints.slice(), eles: null, tur: true });
-  etappeJobs.forEach(x => jobs.push(x));
+  if (hasTurRoute) jobs.push({ target: obj, j: 0, tur: true, navn: obj.navn, latlngs: planPoints.slice(), eles: null });
+  etappeJobs.forEach(x => jobs.push({ target: x.e, j: x.j, tur: false, navn: x.navn, latlngs: x.latlngs, eles: x.eles }));
 
   const gen = document.getElementById("st-gen");
   const prog = document.getElementById("st-progress");
-  const dl = document.getElementById("st-downloads");
   const profilBoks = document.getElementById("st-profil");
-  dl.innerHTML = "";
   profilBoks.innerHTML = "";
   let advarsel = "", profilHtml = "";
 
@@ -1255,7 +1277,7 @@ document.getElementById("st-gen").addEventListener("click", async () => {
         if (!manuellStigning && gain) obj.stigning_m = Math.round(gain);
         if (loss) obj.fall_m = Math.round(loss);
       }
-      addDownloadButton(job.filename, buildGPX(job.latlngs, job.navn, eles));
+      attachGpx(job, buildGPX(job.latlngs, job.navn, eles));
       // Forhåndsvis høydeprofilen (både tur og etapper).
       const prof = eles ? byggProfil(job.latlngs, eles) : "";
       if (prof) profilHtml += '<p class="blocklabel" style="margin-top:.8rem">' + esc(job.navn) + '</p>' + prof;
@@ -1268,6 +1290,25 @@ document.getElementById("st-gen").addEventListener("click", async () => {
 
   if (manuellStigning) obj.stigning_m = Number(manuellStigning);
   if (notater) obj.notater = notater;
+  if (etapper.length) obj.etapper = etapper;
+  if (pakke.length) obj.pakkeliste = pakke;
+
+  return { advarsel: advarsel, harRuter: jobs.length > 0 };
+}
+
+document.getElementById("st-gen").addEventListener("click", async () => {
+  const felt = samleSkjemaData();
+  if (!felt) return;
+  const { id, obj } = felt;
+
+  document.getElementById("st-downloads").innerHTML = "";
+
+  const { advarsel, harRuter } = await behandleRuter(felt, (job, tekst) => {
+    const filnavn = job.tur ? (id + ".gpx") : (id + "-e" + job.j + ".gpx");
+    job.target.gpx = "/turer/" + filnavn;
+    addDownloadButton(filnavn, tekst);
+  });
+
   // Rekkefølge på nøklene: sett stigning/notater/etapper/pakkeliste til slutt.
   const ordered = {};
   ["id","navn","status","type","dato","dager","beskrivelse","gpx","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
@@ -1277,10 +1318,52 @@ document.getElementById("st-gen").addEventListener("click", async () => {
   document.getElementById("st-output-wrap").hidden = false;
   document.getElementById("st-copy").hidden = false;
   document.getElementById("st-gpx-hint").textContent =
-    (jobs.length
+    (harRuter
       ? "Lim oppføringen inn i «turer»-lista i turer.json (husk komma mellom oppføringer), og legg GPX-filene under i turer/."
       : "Ingen rute er tegnet eller lastet opp, så turen får ikke kart. Tegn ruta eller legg til etappe-GPX først.") + advarsel;
 });
+
+// Lagre turen direkte som en delt ekspedisjon i databasen (krever innlogging).
+// Ingen filer å laste ned – GPX-en limes rett inn i raden. Oppdaterer samme rad
+// ved redigering (matcher på eier + id/slug), ellers lages en ny, privat tur.
+async function lagreTilDatabase(){
+  if (!sb) return;
+  const { data: sess } = await sb.auth.getSession();
+  const bruker = sess.session && sess.session.user;
+  if (!bruker){ alert("Du må være logget inn for å lagre en ekspedisjon."); return; }
+
+  const felt = samleSkjemaData();
+  if (!felt) return;
+  const { id, obj } = felt;
+
+  const knapp = document.getElementById("st-save-db");
+  const msg = document.getElementById("st-save-msg");
+  knapp.disabled = true;
+  msg.hidden = false;
+  msg.textContent = "Lagrer …";
+
+  const { advarsel } = await behandleRuter(felt, (job, tekst) => { job.target.gpxData = tekst; });
+
+  const ordered = {};
+  ["id","navn","status","type","dato","dager","beskrivelse","gpxData","distanse_km","stigning_m","fall_m","notater","etapper","pakkeliste"]
+    .forEach(k => { if (obj[k] !== undefined) ordered[k] = obj[k]; });
+
+  const offentlig = redigerDb ? !!redigerDb.offentlig : false;
+  const { error } = await sb.from("expeditions").upsert(
+    { slug: id, eier: bruker.id, offentlig: offentlig, data: ordered },
+    { onConflict: "eier,slug" }
+  );
+
+  knapp.disabled = false;
+  msg.textContent = error
+    ? "Kunne ikke lagre: " + error.message
+    : "Lagret! Turen ligger nå under «Ekspedisjoner»." + advarsel;
+  if (!error){
+    redigerDb = { offentlig: offentlig };
+    await lastEkspedisjonerFraDb();
+  }
+}
+document.getElementById("st-save-db").addEventListener("click", lagreTilDatabase);
 
 document.getElementById("st-copy").addEventListener("click", () => {
   const ta = document.getElementById("st-output");
@@ -1300,6 +1383,7 @@ function nullstillSkjema(){
     .forEach(id => { document.getElementById(id).value = ""; });
   document.getElementById("st-status").value = "planlagt";
   stIdTouched = false;
+  redigerDb = null;
   document.getElementById("st-etapper").innerHTML = "";
   document.getElementById("st-pakke").innerHTML = "";
   addEtappeBlock();
@@ -1309,6 +1393,8 @@ function nullstillSkjema(){
   document.getElementById("st-copy").hidden = true;
   document.getElementById("st-editing").hidden = true;
   document.getElementById("st-progress").hidden = true;
+  const saveMsg = document.getElementById("st-save-msg");
+  if (saveMsg) saveMsg.hidden = true;
 }
 document.getElementById("st-reset").addEventListener("click", nullstillSkjema);
 
@@ -1319,6 +1405,10 @@ async function redigerTur(t){
   selectTab("plan");
   const saveBox = document.querySelector(".save-tur");
   if (saveBox) saveBox.open = true;
+
+  // Husk om turen kommer fra databasen (og om den er offentlig), slik at
+  // «Lagre til Ekspedisjon» oppdaterer riktig rad og beholder synligheten.
+  redigerDb = t._dbOffentlig !== undefined ? { offentlig: t._dbOffentlig } : null;
 
   // Metadata
   document.getElementById("st-navn").value = t.navn || "";
@@ -1342,19 +1432,18 @@ async function redigerTur(t){
 
   // Last inn hovedruta i kartet slik at den kan justeres.
   clearPlan();
-  if (t.gpx){
+  if (t.gpx || t.gpxData){
     try {
-      const r = await fetch(t.gpx);
-      if (r.ok){
-        const g = parseGPX(await r.text());
-        g.latlngs.forEach(p => addPoint(p[0], p[1]));
-        setTimeout(() => { const ll = planLine.getLatLngs(); if (ll.length) planMap.fitBounds(planLine.getBounds(), { padding:[20,20] }); }, 80);
-      }
+      const g = await lastRute({ gpx: t.gpx, gpxData: t.gpxData });
+      g.latlngs.forEach(p => addPoint(p[0], p[1]));
+      setTimeout(() => { const ll = planLine.getLatLngs(); if (ll.length) planMap.fitBounds(planLine.getBounds(), { padding:[20,20] }); }, 80);
     } catch(err){ console.warn("Kunne ikke laste rute:", err.message); }
   }
 
   const note = document.getElementById("st-editing");
-  note.textContent = "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lag JSON» – behold samme id og filnavn så oppføringen erstatter den gamle. «Tøm skjema» starter på nytt.";
+  note.textContent = redigerDb
+    ? "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lagre til Ekspedisjon» for å oppdatere den. «Tøm skjema» starter på nytt."
+    : "Redigerer «" + (t.navn || t.id) + "». Endre det du vil og trykk «Lag JSON» – behold samme id og filnavn så oppføringen erstatter den gamle. «Tøm skjema» starter på nytt.";
   note.hidden = false;
   document.getElementById("st-output-wrap").hidden = true;
   document.getElementById("st-copy").hidden = true;
